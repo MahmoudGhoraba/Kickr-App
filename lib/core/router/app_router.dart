@@ -2,25 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kickr/features/auth/presentation/providers/auth_providers.dart';
+import 'package:kickr/features/profile/data/profile_model.dart';
 import 'package:kickr/features/auth/presentation/screens/login_screen.dart';
 import 'package:kickr/features/auth/presentation/screens/onboarding_screen.dart';
 import 'package:kickr/features/auth/presentation/screens/signup_screen.dart';
 import 'package:kickr/features/auth/presentation/screens/splash_screen.dart';
+import 'package:kickr/features/company/presentation/screens/applicant_list_screen.dart';
+import 'package:kickr/features/company/presentation/screens/company_internship_form_screen.dart';
+import 'package:kickr/features/internships/data/internship_model.dart';
+import 'package:kickr/features/internships/presentation/screens/home_screen.dart';
+import 'package:kickr/features/internships/presentation/screens/internship_detail_screen.dart';
+import 'package:kickr/features/profile/presentation/screens/profile_edit_screen.dart';
 
-// Route name constants — use these instead of raw strings everywhere
+// Route path constants — always use these instead of raw strings
 class AppRoutes {
   AppRoutes._();
+
   static const splash = '/';
   static const onboarding = '/onboarding';
   static const login = '/login';
   static const signup = '/signup';
   static const home = '/home';
+  static const internshipDetail = '/internships/:id';
+
+  // Profile
+  static const profileEdit = '/profile/edit';
+
+  // Company portal
+  static const companyInternshipCreate = '/company/internships/new';
+  static const companyInternshipEdit = '/company/internships/:id/edit';
+  static const companyApplicants = '/company/internships/:id/applicants';
+
+  static String internshipDetailPath(String id) => '/internships/$id';
+  static String companyInternshipEditPath(String id) =>
+      '/company/internships/$id/edit';
+  static String companyApplicantsPath(String id) =>
+      '/company/internships/$id/applicants';
 }
 
 // Bridges Riverpod state into a Listenable for GoRouter's refreshListenable
 class _RouterNotifier extends ChangeNotifier {
   _RouterNotifier(this._ref) {
-    _ref.listen(authStateProvider, (_, next) => notifyListeners());
+    _ref.listen(authStateProvider, (_, _) => notifyListeners());
   }
 
   final Ref _ref;
@@ -30,7 +53,7 @@ class _RouterNotifier extends ChangeNotifier {
     return state.when(
       data: (authState) => authState.session != null,
       loading: () => false,
-      error: (err, stack) => false,
+      error: (_, _) => false,
     );
   }
 }
@@ -75,39 +98,58 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.signup,
         builder: (context, _) => const SignupScreen(),
       ),
-      // Home is a placeholder — replaced by real home in Stage 2
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, _) => const _HomeStub(),
+        builder: (context, _) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.internshipDetail,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return InternshipDetailScreen(internshipId: id);
+        },
+      ),
+
+      // ── Profile ────────────────────────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.profileEdit,
+        builder: (context, state) {
+          // Profile is passed as extra so the edit form can pre-fill
+          // without a second Supabase fetch.
+          final profile = state.extra is Profile ? state.extra as Profile : null;
+          return ProfileEditScreen(initialProfile: profile);
+        },
+      ),
+
+      // ── Company portal ─────────────────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.companyInternshipCreate,
+        builder: (context, state) {
+          final companyId = state.extra as String;
+          return CompanyInternshipFormScreen(companyId: companyId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.companyInternshipEdit,
+        builder: (context, state) {
+          final internship = state.extra as Internship;
+          return CompanyInternshipFormScreen(
+            companyId: internship.companyId,
+            internship: internship,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.companyApplicants,
+        builder: (context, state) {
+          final internshipId = state.pathParameters['id']!;
+          final title = state.extra as String? ?? 'Applicants';
+          return ApplicantListScreen(
+            internshipId: internshipId,
+            internshipTitle: title,
+          );
+        },
       ),
     ],
   );
 });
-
-class _HomeStub extends ConsumerWidget {
-  const _HomeStub();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Welcome to Kickr!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text('Home screen coming in Stage 2'),
-            const SizedBox(height: 32),
-            TextButton(
-              onPressed: () => ref.read(authNotifierProvider.notifier).signOut(),
-              child: const Text('Sign Out'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -113,3 +113,28 @@ app.*.map.json
 
 # Secrets — never commit real keys
 .env
+
+
+# Flutter generated
+.flutter-plugins
+*.lock.resolve
+
+# Xcode build artifacts
+ios/build/
+**/DerivedData/
+
+# Gradle
+.gradle/
+
+# Keystore (Android signing)
+*.jks
+*.keystore
+
+# Firebase / Google Services (if using)
+# google-services.json
+# GoogleService-Info.plist
+
+# Generated Dart files (if using code generation)
+*.g.dart
+*.freezed.dart
+*.mocks.dart

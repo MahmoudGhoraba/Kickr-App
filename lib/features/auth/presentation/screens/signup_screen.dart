@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kickr/core/router/app_router.dart';
 import 'package:kickr/core/theme/app_colors.dart';
@@ -52,7 +54,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       final state = ref.read(authNotifierProvider);
       state.whenOrNull(
         data: (_) => _showSuccess(),
-        error: (e, _) => _showError(_cleanError(e.toString())),
+        error: (e, st) {
+          debugPrint('[Auth] signUp failed: $e\n$st');
+          final msg = e is AuthException ? e.message : e.toString();
+          _showError(_cleanError(msg));
+        },
       );
     }
   }
@@ -93,14 +99,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 
-  String _cleanError(String raw) {
-    if (raw.contains('User already registered')) {
+  String _cleanError(String msg) {
+    if (msg.contains('User already registered')) {
       return 'An account with this email already exists.';
     }
-    if (raw.contains('Password should be')) {
+    if (msg.contains('Password should be')) {
       return 'Password must be at least 6 characters.';
     }
-    return 'Something went wrong. Please try again.';
+    return kDebugMode ? msg : 'Something went wrong. Please try again.';
   }
 
   @override
@@ -267,3 +273,4 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 }
+

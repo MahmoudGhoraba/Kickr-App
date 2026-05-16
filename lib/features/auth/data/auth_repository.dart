@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:kickr/core/constants/app_constants.dart';
 
 class AuthRepository {
   AuthRepository(this._supabase);
@@ -18,6 +19,7 @@ class AuthRepository {
       email: email,
       password: password,
       data: {'full_name': fullName},
+      emailRedirectTo: AppConstants.emailRedirectUri,
     );
   }
 
