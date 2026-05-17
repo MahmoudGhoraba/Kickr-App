@@ -35,7 +35,9 @@ class ProfileScreen extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (_, _) => const Center(child: Text('Could not load profile.')),
+        error: (_, _) => _ProfileErrorState(
+          onRetry: () => ref.invalidate(currentProfileProvider),
+        ),
         data: (profile) => _ProfileBody(profile: profile, email: email),
       ),
     );
@@ -130,6 +132,52 @@ class _ProfileBody extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileErrorState extends StatelessWidget {
+  const _ProfileErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.person_off_outlined,
+                    size: 48,
+                    color: AppColors.textHint,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Could not load profile',
+                    style: AppTextStyles.headlineMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Check your connection and try again.',
+                    style: AppTextStyles.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  AppButton(label: 'Retry', onPressed: onRetry),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/internships/presentation/providers/internship_providers.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_card.dart';
+import 'package:kickr/shared/widgets/app_button.dart';
 
 class SavedInternshipsScreen extends ConsumerWidget {
   const SavedInternshipsScreen({super.key});
@@ -23,7 +24,13 @@ class SavedInternshipsScreen extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (_, _) => const _EmptyView(isError: true),
+        error: (_, _) => _EmptyView(
+          isError: true,
+          onRetry: () {
+            ref.invalidate(internshipsProvider);
+            ref.invalidate(savedInternshipIdsProvider);
+          },
+        ),
         data: (list) => list.isEmpty
             ? const _EmptyView(isError: false)
             : ListView.separated(
@@ -46,39 +53,53 @@ class SavedInternshipsScreen extends ConsumerWidget {
 }
 
 class _EmptyView extends StatelessWidget {
-  const _EmptyView({required this.isError});
+  const _EmptyView({required this.isError, this.onRetry});
 
   final bool isError;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isError
-                  ? Icons.error_outline_rounded
-                  : Icons.bookmark_outline_rounded,
-              size: 56,
-              color: AppColors.textHint,
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isError
+                        ? Icons.wifi_off_rounded
+                        : Icons.bookmark_outline_rounded,
+                    size: 56,
+                    color: AppColors.textHint,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isError ? 'Could not load saved internships' : 'No saved internships',
+                    style: AppTextStyles.headlineMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isError
+                        ? 'Check your connection and try again.'
+                        : 'Tap the bookmark on any internship to save it for later.',
+                    style: AppTextStyles.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (isError && onRetry != null) ...[
+                    const SizedBox(height: 24),
+                    AppButton(label: 'Retry', onPressed: onRetry!),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              isError ? 'Something went wrong' : 'No saved internships',
-              style: AppTextStyles.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isError
-                  ? 'Could not load your saved internships.'
-                  : 'Tap the bookmark on any internship to save it for later.',
-              style: AppTextStyles.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
       ),
     );

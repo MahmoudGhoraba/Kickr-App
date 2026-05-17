@@ -24,7 +24,7 @@ const _pages = [
   _OnboardingPage(
     title: 'Discover Internships',
     subtitle:
-        'Browse hundreds of curated internship opportunities from top companies in Egypt — all in one place.',
+        'Browse curated internship opportunities from top companies in Egypt — all in one place.',
     icon: Icons.search_rounded,
     color: AppColors.primary,
   ),
@@ -33,13 +33,13 @@ const _pages = [
     subtitle:
         'Upload your CV once and apply to multiple internships with a single tap. No more repetitive forms.',
     icon: Icons.bolt_rounded,
-    color: Color(0xFF7C3AED),
+    color: AppColors.typeOnsiteText,
   ),
   _OnboardingPage(
-    title: 'AI-Powered Growth',
+    title: 'Track Your Journey',
     subtitle:
-        'Get personalized CV feedback, cover letter generation, and interview preparation powered by AI.',
-    icon: Icons.auto_awesome_rounded,
+        'Build your profile, showcase your skills, and follow every application from submission to offer.',
+    icon: Icons.trending_up_rounded,
     color: AppColors.accent,
   ),
 ];

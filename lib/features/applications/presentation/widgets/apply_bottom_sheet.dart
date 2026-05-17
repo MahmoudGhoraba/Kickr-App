@@ -37,7 +37,7 @@ class ApplyBottomSheet extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DragHandle(),
+              const _DragHandle(),
               const SizedBox(height: 8),
 
               if (applyState.isSuccess) ...[
@@ -103,6 +103,8 @@ class ApplyBottomSheet extends ConsumerWidget {
 }
 
 class _DragHandle extends StatelessWidget {
+  const _DragHandle();
+
   @override
   Widget build(BuildContext context) {
     return Center(

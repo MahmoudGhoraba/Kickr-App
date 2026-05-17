@@ -134,9 +134,7 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         isActive ? 'Active' : 'Inactive',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+        style: AppTextStyles.badge.copyWith(
           color: isActive ? AppColors.success : AppColors.textSecondary,
         ),
       ),

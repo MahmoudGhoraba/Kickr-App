@@ -32,6 +32,10 @@ dependencies:
   # Open URLs (CV review, company website)
   url_launcher: ^6.3.1
 
+  # Firebase (Crashlytics)
+  firebase_core: ^3.13.0
+  firebase_crashlytics: ^4.3.5
+
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

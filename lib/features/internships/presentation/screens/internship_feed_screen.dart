@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kickr/core/router/app_router.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/internships/presentation/providers/internship_providers.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_card.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_filter_bar.dart';
+import 'package:kickr/features/profile/presentation/providers/profile_providers.dart';
 import 'package:kickr/shared/widgets/app_button.dart';
 import 'package:kickr/shared/widgets/app_search_bar.dart';
 
@@ -38,9 +38,9 @@ class _InternshipFeedScreenState
   @override
   Widget build(BuildContext context) {
     final internships = ref.watch(filteredInternshipsProvider);
-    final user = Supabase.instance.client.auth.currentUser;
-    final firstName =
-        _firstName(user?.userMetadata?['full_name'] as String?);
+    final firstName = _firstName(
+      ref.watch(currentProfileProvider).valueOrNull?.fullName,
+    );
 
     return SafeArea(
       bottom: false,

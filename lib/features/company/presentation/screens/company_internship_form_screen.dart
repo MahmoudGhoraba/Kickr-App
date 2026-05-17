@@ -46,6 +46,12 @@ class _CompanyInternshipFormScreenState
     _locationCtrl = TextEditingController();
     _categoryCtrl = TextEditingController();
     _skillCtrl = TextEditingController();
+    if (widget.internship != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _initFromInternship(widget.internship!);
+      });
+    }
   }
 
   @override
@@ -72,10 +78,6 @@ class _CompanyInternshipFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    if (_isEditMode && !_initialized) {
-      _initFromInternship(widget.internship!);
-    }
-
     final state = ref.watch(internshipFormProvider);
     final notifier = ref.read(internshipFormProvider.notifier);
 
@@ -216,6 +218,9 @@ class _CompanyInternshipFormScreenState
                   padding: const EdgeInsets.only(bottom: 2),
                   child: OutlinedButton(
                     onPressed: state.isLoading ? null : () => _addSkill(notifier),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 52),
+                    ),
                     child: const Text('Add'),
                   ),
                 ),

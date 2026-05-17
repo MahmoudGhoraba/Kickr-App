@@ -42,6 +42,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       return;
     }
 
+    FocusScope.of(context).unfocus();
     ref.read(authNotifierProvider.notifier).clearError();
 
     await ref.read(authNotifierProvider.notifier).signUp(

@@ -42,7 +42,19 @@ class InternshipDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Text('Could not load internship',
                     style: AppTextStyles.headlineMedium),
+                const SizedBox(height: 8),
+                Text(
+                  'Check your connection and try again.',
+                  style: AppTextStyles.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 24),
+                TextButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(internshipDetailProvider(internshipId)),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                ),
                 TextButton.icon(
                   onPressed: () => context.pop(),
                   icon: const Icon(Icons.arrow_back_rounded),

@@ -60,4 +60,10 @@ class AppTextStyles {
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
       );
+
+  static TextStyle get badge => GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+      );
 }

@@ -203,8 +203,10 @@ class ApplyNotifier extends StateNotifier<ApplyState> {
         cvUrl: cvUrl,
       );
 
-      _onSuccess(application);
-      state = state.copyWith(isLoading: false, isSuccess: true);
+      if (mounted) {
+        _onSuccess(application);
+        state = state.copyWith(isLoading: false, isSuccess: true);
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _extractError(e));
     }

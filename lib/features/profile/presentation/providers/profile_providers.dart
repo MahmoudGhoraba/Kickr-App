@@ -211,8 +211,10 @@ class ProfileEditNotifier extends StateNotifier<ProfileEditState> {
         },
       );
 
-      _onSuccess();
-      if (mounted) state = state.copyWith(isLoading: false, isSuccess: true);
+      if (mounted) {
+        _onSuccess();
+        state = state.copyWith(isLoading: false, isSuccess: true);
+      }
     } catch (e) {
       if (mounted) {
         state = state.copyWith(

@@ -296,7 +296,21 @@ A typed `Profile` model lives at `features/profile/data/profile_model.dart` — 
 3. Create screens under `lib/features/<name>/presentation/screens/`.
 4. Add route path constants to `AppRoutes` in `app_router.dart` and add the corresponding `GoRoute` to the `routes` list.
 5. Routes that require authentication are protected automatically by the `redirect` callback — only add a route to `isAuthRoute` if it should be publicly accessible.
-6. In every async-initialising `StateNotifier`, guard state assignment after `await` with `if (mounted) state = result` — the provider may be rebuilt (e.g. on auth change) before the async completes.
+6. In every async-initialising `StateNotifier`, guard **both the state assignment and any side-effect callbacks** inside `if (mounted)` after every `await` — the provider may be disposed (e.g. user navigates back mid-request) before the async completes. Calling `ref.invalidate(...)` or any callback on a disposed `Ref` throws `StateError`:
+
+```dart
+// correct — callback and state update share the same mounted check
+if (mounted) {
+  _onSuccess();
+  state = state.copyWith(isLoading: false, isSuccess: true);
+}
+
+// wrong — callback fires on disposed Ref, crashes at runtime
+_onSuccess();
+if (mounted) state = state.copyWith(isLoading: false, isSuccess: true);
+```
+
+This applies to all four `autoDispose` notifiers in the codebase: `ProfileEditNotifier`, `ApplyNotifier`, `CompanySetupNotifier`, `InternshipFormNotifier`.
 
 ### Routing
 
@@ -354,9 +368,20 @@ Brand palette: primary `#FF6B35` (orange), accent `#1A1F5E` (deep blue). Backgro
 | `typeRemoteText/Bg` | emerald 600 / 50 | Remote internship badge |
 | `typeOnsiteText/Bg` | violet 600 / 50 | Onsite internship badge |
 
+`AppTextStyles` token for small badge labels: `AppTextStyles.badge` (Inter, 11px, w600). Use `.copyWith(color: ...)` to tint it per badge type. Never write `TextStyle(fontSize: 11, ...)` inline for badge or chip text — all three badge widgets (`InternshipTypeBadge`, `InternshipSkillChip`, `_StatusBadge`) already use this token.
+
 ## Current Stage
 
-**Stage 4 complete. Stage 5 (AI features) is next.**
+**Stage 4 + beta stabilization complete. Stage 5 (AI features) is next.**
+
+Beta stabilization delivered (see `docs/beta_release_checklist.md` and `docs/closed_beta_launch.md`):
+- `if (mounted)` callback safety in all four `autoDispose` notifiers
+- `addPostFrameCallback` init pattern in `CompanyInternshipFormScreen`
+- Error states with retry buttons across all screens (internship detail, saved, profile)
+- `_extractError()` helpers in company + apply notifiers for user-readable Supabase errors
+- Onboarding page 3 rewritten to reference only shipped features (AI references removed)
+- `AppTextStyles.badge` added; all badge widgets migrated to design system token
+- `flutter analyze` confirmed clean
 
 Stage 4 delivered:
 - `features/company/` — `CompanyRepository`, company dashboard, internship form (create/edit/archive), applicant list with status updates and CV viewer

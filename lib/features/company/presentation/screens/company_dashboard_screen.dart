@@ -177,11 +177,30 @@ class CompanyDashboardScreen extends ConsumerWidget {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed != true || !context.mounted) return;
+
+    try {
       await ref
           .read(companyRepositoryProvider)
           .archiveInternship(internship.id);
-      ref.read(companyInternshipsProvider.notifier).removeInternship(internship.id);
+      if (context.mounted) {
+        ref
+            .read(companyInternshipsProvider.notifier)
+            .removeInternship(internship.id);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+                'Failed to archive internship. Please try again.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
     }
   }
 }

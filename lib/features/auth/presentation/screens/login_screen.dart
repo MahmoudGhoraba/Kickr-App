@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kickr/core/router/app_router.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
@@ -30,6 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     ref.read(authNotifierProvider.notifier).clearError();
 
     await ref.read(authNotifierProvider.notifier).signIn(
@@ -41,7 +43,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (mounted) {
       final state = ref.read(authNotifierProvider);
       state.whenOrNull(
-        error: (e, _) => _showError(e.toString()),
+        error: (e, _) {
+          final msg = e is AuthException ? e.message : e.toString();
+          _showError(msg);
+        },
       );
     }
   }

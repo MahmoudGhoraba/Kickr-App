@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kickr/core/theme/app_colors.dart';
+import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
 
 /// Colored badge displaying the internship location type.
@@ -24,11 +25,7 @@ class InternshipTypeBadge extends StatelessWidget {
       ),
       child: Text(
         type.label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
+        style: AppTextStyles.badge.copyWith(fontSize: 10, color: textColor),
       ),
     );
   }
@@ -59,8 +56,7 @@ class InternshipSkillChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 11,
+        style: AppTextStyles.badge.copyWith(
           fontWeight: FontWeight.w500,
           color: isExtra ? AppColors.textSecondary : AppColors.primary,
         ),

@@ -218,6 +218,7 @@ class CompanySetupNotifier extends StateNotifier<CompanySetupState> {
       state = state.copyWith(error: 'Company name is required.');
       return;
     }
+    if (_ownerId.isEmpty) return;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _repo.createCompany(
@@ -228,13 +229,20 @@ class CompanySetupNotifier extends StateNotifier<CompanySetupState> {
         location: location,
         website: website,
       );
-      _onSuccess();
-      if (mounted) state = state.copyWith(isLoading: false, isSuccess: true);
+      if (mounted) {
+        _onSuccess();
+        state = state.copyWith(isLoading: false, isSuccess: true);
+      }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, error: e.toString());
+        state = state.copyWith(isLoading: false, error: _extractError(e));
       }
     }
+  }
+
+  String _extractError(Object e) {
+    if (e is PostgrestException) return 'Could not create company. Please try again.';
+    return 'Something went wrong. Please try again.';
   }
 }
 
@@ -399,7 +407,6 @@ class InternshipFormNotifier extends StateNotifier<InternshipFormState> {
           category: state.category.trim().isEmpty ? null : state.category.trim(),
           requiredSkills: state.skills,
         );
-        _onCreated(result);
       } else {
         result = await _repo.updateInternship(
           internshipId: internshipId,
@@ -414,14 +421,25 @@ class InternshipFormNotifier extends StateNotifier<InternshipFormState> {
           requiredSkills: state.skills,
           isActive: state.isActive,
         );
-        _onUpdated(result);
       }
 
-      if (mounted) state = state.copyWith(isLoading: false, isSuccess: true);
+      if (mounted) {
+        if (internshipId == null) {
+          _onCreated(result);
+        } else {
+          _onUpdated(result);
+        }
+        state = state.copyWith(isLoading: false, isSuccess: true);
+      }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, error: e.toString());
+        state = state.copyWith(isLoading: false, error: _extractError(e));
       }
     }
+  }
+
+  String _extractError(Object e) {
+    if (e is PostgrestException) return 'Could not save internship. Please try again.';
+    return 'Something went wrong. Please try again.';
   }
 }
