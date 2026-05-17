@@ -5,8 +5,10 @@ import 'package:kickr/core/router/app_router.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/company/presentation/providers/company_providers.dart';
+import 'package:kickr/features/company/presentation/screens/company_profile_edit_screen.dart';
 import 'package:kickr/features/company/presentation/screens/company_setup_screen.dart';
 import 'package:kickr/features/company/presentation/widgets/company_internship_card.dart';
+import 'package:kickr/features/internships/data/company_model.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
 import 'package:kickr/shared/widgets/app_button.dart';
 
@@ -61,6 +63,13 @@ class CompanyDashboardScreen extends ConsumerWidget {
           appBar: AppBar(
             title: Text(company.name, style: AppTextStyles.headlineMedium),
             automaticallyImplyLeading: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Edit Company Profile',
+                onPressed: () => _openProfileEdit(context, company),
+              ),
+            ],
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => context.push(
@@ -120,6 +129,14 @@ class CompanyDashboardScreen extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  void _openProfileEdit(BuildContext context, Company company) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CompanyProfileEditScreen(company: company),
+      ),
     );
   }
 

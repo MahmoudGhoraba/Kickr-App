@@ -5,22 +5,56 @@ import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/applications/presentation/providers/application_providers.dart';
 import 'package:kickr/features/applications/presentation/widgets/apply_bottom_sheet.dart';
+import 'package:kickr/features/auth/presentation/providers/auth_providers.dart';
 import 'package:kickr/features/internships/data/company_model.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
 import 'package:kickr/features/internships/presentation/providers/internship_providers.dart';
 import 'package:kickr/features/internships/presentation/widgets/company_avatar.dart';
+import 'package:kickr/features/internships/presentation/widgets/deadline_badge.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_chips.dart';
 
-class InternshipDetailScreen extends ConsumerWidget {
+class InternshipDetailScreen extends ConsumerStatefulWidget {
   const InternshipDetailScreen({super.key, required this.internshipId});
 
   final String internshipId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final internshipAsync = ref.watch(internshipDetailProvider(internshipId));
+  ConsumerState<InternshipDetailScreen> createState() =>
+      _InternshipDetailScreenState();
+}
+
+class _InternshipDetailScreenState
+    extends ConsumerState<InternshipDetailScreen> {
+  bool _viewTracked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _trackView());
+  }
+
+  Future<void> _trackView() async {
+    if (_viewTracked) return;
+    final userId =
+        ref.read(authStateProvider).valueOrNull?.session?.user.id;
+    if (userId == null) return;
+    _viewTracked = true;
+    try {
+      await ref
+          .read(internshipRepositoryProvider)
+          .trackView(internshipId: widget.internshipId, userId: userId);
+    } catch (_) {
+      // View tracking is non-critical; silently ignore failures.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final internshipAsync =
+        ref.watch(internshipDetailProvider(widget.internshipId));
     final savedIds = ref.watch(savedInternshipIdsProvider);
-    final isSaved = savedIds.valueOrNull?.contains(internshipId) ?? false;
+    final isSaved =
+        savedIds.valueOrNull?.contains(widget.internshipId) ?? false;
 
     return internshipAsync.when(
       loading: () => Scaffold(
@@ -50,8 +84,8 @@ class InternshipDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 24),
                 TextButton.icon(
-                  onPressed: () =>
-                      ref.invalidate(internshipDetailProvider(internshipId)),
+                  onPressed: () => ref
+                      .invalidate(internshipDetailProvider(widget.internshipId)),
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Retry'),
                 ),
@@ -83,7 +117,7 @@ class InternshipDetailScreen extends ConsumerWidget {
               ),
               onPressed: () => ref
                   .read(savedInternshipIdsProvider.notifier)
-                  .toggle(internshipId),
+                  .toggle(widget.internshipId),
             ),
           ],
         ),
@@ -92,7 +126,7 @@ class InternshipDetailScreen extends ConsumerWidget {
           child: _DetailBody(internship: internship),
         ),
         bottomNavigationBar: _ApplyBar(
-          internshipId: internshipId,
+          internshipId: widget.internshipId,
           internship: internship,
         ),
       ),
@@ -129,6 +163,33 @@ class _ApplyBar extends ConsumerWidget {
     required bool isLoading,
     required bool hasApplied,
   }) {
+    if (internship.isExpired && !hasApplied) {
+      return SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.errorBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.error.withAlpha(80)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.event_busy_rounded,
+                  color: AppColors.error, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Application Closed',
+                style: AppTextStyles.labelLarge
+                    .copyWith(color: AppColors.error),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (hasApplied) {
       return SizedBox(
         width: double.infinity,
@@ -258,40 +319,87 @@ class _CompanyHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CompanyAvatar(company: company, size: 60),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(company.name, style: AppTextStyles.headlineMedium),
-              if (company.industry != null) ...[
-                const SizedBox(height: 2),
-                Text(company.industry!, style: AppTextStyles.bodyMedium),
-              ],
-              if (company.location != null) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 14, color: AppColors.textSecondary),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        company.location!,
-                        style: AppTextStyles.caption,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+        Row(
+          children: [
+            CompanyAvatar(company: company, size: 60),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(company.name, style: AppTextStyles.headlineMedium),
+                  if (company.industry != null) ...[
+                    const SizedBox(height: 2),
+                    Text(company.industry!, style: AppTextStyles.bodyMedium),
+                  ],
+                  if (company.location != null || company.companySize != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (company.location != null) ...[
+                          const Icon(Icons.location_on_outlined,
+                              size: 14, color: AppColors.textSecondary),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              company.location!,
+                              style: AppTextStyles.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        if (company.location != null && company.companySize != null)
+                          const Text(' · ',
+                              style: TextStyle(
+                                  color: AppColors.textSecondary, fontSize: 12)),
+                        if (company.companySize != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.people_outline_rounded,
+                                  size: 14, color: AppColors.textSecondary),
+                              const SizedBox(width: 4),
+                              Text(company.companySize!,
+                                  style: AppTextStyles.caption),
+                            ],
+                          ),
+                      ],
                     ),
                   ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (company.cultureDescription != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.primary.withAlpha(40)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Culture & Values',
+                    style: AppTextStyles.labelMedium
+                        .copyWith(color: AppColors.primary)),
+                const SizedBox(height: 4),
+                Text(
+                  company.cultureDescription!,
+                  style: AppTextStyles.bodyMedium.copyWith(height: 1.5),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -318,6 +426,8 @@ class _MetaRow extends StatelessWidget {
             icon: Icons.work_outline_rounded,
             label: internship.category!,
           ),
+        if (internship.deadline != null)
+          DeadlineBadge(deadline: internship.deadline!),
       ],
     );
   }

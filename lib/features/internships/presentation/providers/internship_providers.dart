@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kickr/features/auth/presentation/providers/auth_providers.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
 import 'package:kickr/features/internships/data/internship_repository.dart';
+import 'package:kickr/features/internships/data/saved_search_model.dart';
+import 'package:kickr/features/internships/data/saved_search_repository.dart';
 
 // ─── Repository ─────────────────────────────────────────────────────────────
 
@@ -185,3 +187,75 @@ final internshipDetailProvider =
     FutureProvider.family<Internship, String>((ref, id) {
   return ref.watch(internshipRepositoryProvider).fetchInternshipById(id);
 });
+
+// ─── Saved Searches ───────────────────────────────────────────────────────────
+
+final savedSearchRepositoryProvider = Provider<SavedSearchRepository>((ref) {
+  return SavedSearchRepository(Supabase.instance.client);
+});
+
+final savedSearchesProvider = StateNotifierProvider<SavedSearchesNotifier,
+    AsyncValue<List<SavedSearch>>>((ref) {
+  final userId =
+      ref.watch(authStateProvider).valueOrNull?.session?.user.id ?? '';
+  return SavedSearchesNotifier(
+    repository: ref.watch(savedSearchRepositoryProvider),
+    userId: userId,
+  );
+});
+
+class SavedSearchesNotifier
+    extends StateNotifier<AsyncValue<List<SavedSearch>>> {
+  SavedSearchesNotifier({
+    required SavedSearchRepository repository,
+    required String userId,
+  })  : _repo = repository,
+        _userId = userId,
+        super(const AsyncValue.loading()) {
+    _load();
+  }
+
+  final SavedSearchRepository _repo;
+  final String _userId;
+
+  Future<void> _load() async {
+    if (_userId.isEmpty) {
+      if (mounted) state = const AsyncValue.data([]);
+      return;
+    }
+    state = const AsyncValue.loading();
+    final result =
+        await AsyncValue.guard(() => _repo.fetchSavedSearches(_userId));
+    if (mounted) state = result;
+  }
+
+  Future<void> save({
+    required String label,
+    String? keyword,
+    InternshipType? internshipType,
+  }) async {
+    try {
+      final search = await _repo.saveSearch(
+        userId: _userId,
+        label: label,
+        keyword: keyword,
+        internshipType: internshipType,
+      );
+      final current = state.valueOrNull ?? [];
+      if (mounted) state = AsyncValue.data([search, ...current]);
+    } catch (_) {}
+  }
+
+  Future<void> delete(String searchId) async {
+    final current = state.valueOrNull ?? [];
+    if (mounted) {
+      state = AsyncValue.data(
+          current.where((s) => s.id != searchId).toList());
+    }
+    try {
+      await _repo.deleteSavedSearch(searchId);
+    } catch (_) {
+      if (mounted) state = AsyncValue.data(current); // rollback
+    }
+  }
+}

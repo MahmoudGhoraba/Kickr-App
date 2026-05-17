@@ -226,6 +226,53 @@ class _CompanyInternshipFormScreenState
                 ),
               ],
             ),
+                    const SizedBox(height: 20),
+            Text('Application Deadline', style: AppTextStyles.labelMedium),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: state.isLoading
+                  ? null
+                  : () => _pickDeadline(context, notifier, state.deadline),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                decoration: BoxDecoration(
+                  color: state.isLoading
+                      ? AppColors.surfaceVariant
+                      : AppColors.surface,
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.event_rounded,
+                        size: 20, color: AppColors.textSecondary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        state.deadline != null
+                            ? _formatDate(state.deadline!)
+                            : 'No deadline (optional)',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: state.deadline == null
+                              ? AppColors.textHint
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (state.deadline != null)
+                      GestureDetector(
+                        onTap: () => notifier.setDeadline(null),
+                        child: const Icon(Icons.close_rounded,
+                            size: 18, color: AppColors.textSecondary),
+                      )
+                    else
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 20, color: AppColors.textSecondary),
+                  ],
+                ),
+              ),
+            ),
             if (_isEditMode) ...[
               const SizedBox(height: 24),
               Row(
@@ -269,6 +316,37 @@ class _CompanyInternshipFormScreenState
     notifier.setSkillInput(_skillCtrl.text);
     notifier.addSkill();
     _skillCtrl.clear();
+  }
+
+  Future<void> _pickDeadline(
+    BuildContext context,
+    InternshipFormNotifier notifier,
+    DateTime? current,
+  ) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: Theme.of(ctx).colorScheme.copyWith(
+                primary: AppColors.primary,
+              ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) notifier.setDeadline(picked);
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }
 

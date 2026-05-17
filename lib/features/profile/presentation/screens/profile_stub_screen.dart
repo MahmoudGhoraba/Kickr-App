@@ -66,11 +66,14 @@ class _ProfileBody extends StatelessWidget {
             const SizedBox(height: 4),
             Text(email, style: AppTextStyles.bodyMedium),
           ],
-          if (profile?.university != null || profile?.major != null) ...[
+          if (profile?.major != null ||
+              profile?.academicYear != null ||
+              profile?.university != null) ...[
             const SizedBox(height: 4),
             Text(
               [
                 if (profile?.major != null) profile!.major!,
+                if (profile?.academicYear != null) profile!.academicYear!,
                 if (profile?.university != null) profile!.university!,
               ].join(' · '),
               style: AppTextStyles.bodyMedium,

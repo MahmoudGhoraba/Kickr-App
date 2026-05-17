@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
+import 'package:kickr/features/internships/presentation/widgets/deadline_badge.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_chips.dart';
 
 class CompanyInternshipCard extends StatelessWidget {
@@ -77,9 +78,17 @@ class CompanyInternshipCard extends StatelessWidget {
               _StatusBadge(isActive: internship.isActive),
             ],
           ),
+          if (internship.deadline != null) ...[
+            const SizedBox(height: 6),
+            DeadlineBadge(deadline: internship.deadline!),
+          ],
           if (internship.requiredSkills.isNotEmpty) ...[
             const SizedBox(height: 10),
             InternshipSkillChips(skills: internship.requiredSkills),
+          ],
+          if (internship.stats != null) ...[
+            const SizedBox(height: 10),
+            _StatsRow(stats: internship.stats!),
           ],
           const SizedBox(height: 12),
           const Divider(height: 1, color: AppColors.border),
@@ -138,6 +147,64 @@ class _StatusBadge extends StatelessWidget {
           color: isActive ? AppColors.success : AppColors.textSecondary,
         ),
       ),
+    );
+  }
+}
+
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({required this.stats});
+
+  final InternshipStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StatChip(
+          icon: Icons.visibility_outlined,
+          value: stats.viewCount,
+          label: 'views',
+        ),
+        const SizedBox(width: 12),
+        _StatChip(
+          icon: Icons.bookmark_outline_rounded,
+          value: stats.saveCount,
+          label: 'saved',
+        ),
+        const SizedBox(width: 12),
+        _StatChip(
+          icon: Icons.send_outlined,
+          value: stats.applicationCount,
+          label: 'applied',
+        ),
+      ],
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final int value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: AppColors.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          '$value $label',
+          style: AppTextStyles.caption,
+        ),
+      ],
     );
   }
 }

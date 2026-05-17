@@ -1,8 +1,8 @@
 import 'package:kickr/core/constants/role_constants.dart';
 
 /// Mirrors the `profiles` table.
-/// The `role` field is nullable: the DB column does not exist until Stage 4.
-/// Parsing is null-safe — if the key is absent, `role` defaults to null.
+/// `role` is nullable — DB column added in Stage 4, absent rows treated as student.
+/// `academicYear` and `profileCompleted` added in Stage 5 profile-completion pass.
 class Profile {
   const Profile({
     required this.id,
@@ -15,6 +15,8 @@ class Profile {
     this.cvUrl,
     this.avatarUrl,
     this.role,
+    this.academicYear,
+    this.profileCompleted = false,
   });
 
   final String id;
@@ -30,6 +32,13 @@ class Profile {
   /// Null until the `profiles.role` column is added in Stage 4.
   /// Treated as [UserRole.student] by role-checking helpers when null.
   final UserRole? role;
+
+  /// Student's current academic year (e.g. "3rd Year", "Fresh Graduate").
+  final String? academicYear;
+
+  /// True once the student has completed the mandatory profile setup flow.
+  /// Defaults to false — drives the GoRouter redirect to CompleteProfileScreen.
+  final bool profileCompleted;
 
   UserRole get effectiveRole => role ?? UserRole.student;
 
@@ -49,6 +58,8 @@ class Profile {
         role: json['role'] != null
             ? UserRole.fromString(json['role'] as String)
             : null,
+        academicYear: json['academic_year'] as String?,
+        profileCompleted: json['profile_completed'] as bool? ?? false,
       );
 
   Map<String, dynamic> toUpdateJson() => {
@@ -58,5 +69,7 @@ class Profile {
         if (bio != null) 'bio': bio,
         'skills': skills,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
+        if (academicYear != null) 'academic_year': academicYear,
+        'profile_completed': profileCompleted,
       };
 }

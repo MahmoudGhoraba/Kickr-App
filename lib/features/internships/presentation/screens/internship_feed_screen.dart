@@ -11,6 +11,15 @@ import 'package:kickr/features/profile/presentation/providers/profile_providers.
 import 'package:kickr/shared/widgets/app_button.dart';
 import 'package:kickr/shared/widgets/app_search_bar.dart';
 
+String _buildSearchLabel(InternshipFilter filter) {
+  final parts = <String>[];
+  if (filter.query.isNotEmpty) parts.add('"${filter.query}"');
+  if (filter.selectedTypes.isNotEmpty) {
+    parts.add(filter.selectedTypes.map((t) => t.label).join(', '));
+  }
+  return parts.join(' · ');
+}
+
 class InternshipFeedScreen extends ConsumerStatefulWidget {
   const InternshipFeedScreen({super.key});
 
@@ -38,6 +47,7 @@ class _InternshipFeedScreenState
   @override
   Widget build(BuildContext context) {
     final internships = ref.watch(filteredInternshipsProvider);
+    final filter = ref.watch(internshipFilterProvider);
     final firstName = _firstName(
       ref.watch(currentProfileProvider).valueOrNull?.fullName,
     );
@@ -65,6 +75,10 @@ class _InternshipFeedScreenState
                     ),
                     const SizedBox(height: 12),
                     const InternshipFilterBar(),
+                    if (!filter.isEmpty) ...[
+                      const SizedBox(height: 8),
+                      _SaveSearchBar(filter: filter),
+                    ],
                     const SizedBox(height: 8),
                   ],
                 ),
@@ -103,6 +117,88 @@ class _InternshipFeedScreenState
         ),
       ),
     );
+  }
+}
+
+class _SaveSearchBar extends ConsumerWidget {
+  const _SaveSearchBar({required this.filter});
+
+  final InternshipFilter filter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => _showSaveDialog(context, ref),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primaryLight,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.primary.withAlpha(60)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.notifications_outlined,
+                size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Save this search for alerts',
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSaveDialog(BuildContext context, WidgetRef ref) async {
+    final label = _buildSearchLabel(filter);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Save search alert'),
+        content: Text(
+          'You\'ll be notified when new internships match:\n\n$label',
+          style: AppTextStyles.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            child: const Text('Save Alert'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    await ref.read(savedSearchesProvider.notifier).save(
+          label: label,
+          keyword: filter.query.isEmpty ? null : filter.query,
+          internshipType: filter.selectedTypes.length == 1
+              ? filter.selectedTypes.first
+              : null,
+        );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Search alert saved!'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 }
 

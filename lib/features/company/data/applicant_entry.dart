@@ -9,6 +9,8 @@ class ApplicantEntry {
     this.university,
     this.major,
     this.avatarUrl,
+    this.academicYear,
+    this.skills = const [],
   });
 
   final Application application;
@@ -16,14 +18,14 @@ class ApplicantEntry {
   final String? university;
   final String? major;
   final String? avatarUrl;
+  final String? academicYear;
+  final List<String> skills;
 
   String get displayName => fullName ?? 'Applicant';
 
+  /// Single-line identity summary shown beneath the applicant's name.
   String? get subtitle {
-    final parts = [
-      major,
-      university,
-    ].nonNulls.toList();
+    final parts = [major, academicYear, university].nonNulls.toList();
     return parts.isEmpty ? null : parts.join(' · ');
   }
 }

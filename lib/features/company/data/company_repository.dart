@@ -30,6 +30,9 @@ class CompanyRepository {
     String? industry,
     String? location,
     String? website,
+    String? companySize,
+    String? cultureDescription,
+    String? logoUrl,
   }) async {
     final response = await _supabase
         .from(DatabaseConstants.companies)
@@ -41,6 +44,10 @@ class CompanyRepository {
           if (industry != null && industry.isNotEmpty) 'industry': industry,
           if (location != null && location.isNotEmpty) 'location': location,
           if (website != null && website.isNotEmpty) 'website': website,
+          'company_size': ?companySize,
+          if (cultureDescription != null && cultureDescription.isNotEmpty)
+            'culture_description': cultureDescription,
+          'logo_url': ?logoUrl,
         })
         .select()
         .single();
@@ -55,6 +62,9 @@ class CompanyRepository {
     String? industry,
     String? location,
     String? website,
+    String? companySize,
+    String? cultureDescription,
+    String? logoUrl,
   }) async {
     final response = await _supabase
         .from(DatabaseConstants.companies)
@@ -64,6 +74,9 @@ class CompanyRepository {
           'industry': industry,
           'location': location,
           'website': website,
+          'company_size': companySize,
+          'culture_description': cultureDescription,
+          'logo_url': ?logoUrl,
         })
         .eq('id', companyId)
         .select()
@@ -76,10 +89,16 @@ class CompanyRepository {
 
   /// Returns all internships for [companyId] regardless of is_active status
   /// so the company portal shows their full portfolio.
+  /// Embedded counts for applications, saves, and views power the analytics row.
   Future<List<Internship>> fetchCompanyInternships(String companyId) async {
     final response = await _supabase
         .from(DatabaseConstants.internships)
-        .select()
+        .select(
+          '*, '
+          'applications(count), '
+          'saved_internships(count), '
+          'internship_views(count)',
+        )
         .eq('company_id', companyId)
         .order('created_at', ascending: false);
 
@@ -95,6 +114,7 @@ class CompanyRepository {
     required InternshipType type,
     String? category,
     List<String> requiredSkills = const [],
+    DateTime? deadline,
   }) async {
     final response = await _supabase
         .from(DatabaseConstants.internships)
@@ -109,6 +129,7 @@ class CompanyRepository {
           if (category != null && category.isNotEmpty) 'category': category,
           'required_skills': requiredSkills,
           'is_active': true,
+          if (deadline != null) 'deadline': deadline.toUtc().toIso8601String(),
         })
         .select()
         .single();
@@ -126,6 +147,7 @@ class CompanyRepository {
     String? category,
     List<String> requiredSkills = const [],
     required bool isActive,
+    DateTime? deadline,
   }) async {
     final response = await _supabase
         .from(DatabaseConstants.internships)
@@ -139,6 +161,7 @@ class CompanyRepository {
           'category': (category?.isNotEmpty ?? false) ? category : null,
           'required_skills': requiredSkills,
           'is_active': isActive,
+          'deadline': deadline?.toUtc().toIso8601String(),
         })
         .eq('id', internshipId)
         .select()
@@ -172,7 +195,7 @@ class CompanyRepository {
 
     final profileResponse = await _supabase
         .from(DatabaseConstants.profiles)
-        .select('id, full_name, university, major, avatar_url')
+        .select('id, full_name, university, major, avatar_url, academic_year, skills')
         .inFilter('id', userIds);
 
     final profileMap = <String, Map<String, dynamic>>{
@@ -187,6 +210,11 @@ class CompanyRepository {
         university: p?['university'] as String?,
         major: p?['major'] as String?,
         avatarUrl: p?['avatar_url'] as String?,
+        academicYear: p?['academic_year'] as String?,
+        skills: (p?['skills'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            const [],
       );
     }).toList();
   }
@@ -195,8 +223,46 @@ class CompanyRepository {
     required String applicationId,
     required ApplicationStatus status,
   }) async {
-    await _supabase
+    final response = await _supabase
         .from(DatabaseConstants.applications)
-        .update({'status': status.name}).eq('id', applicationId);
+        .update({'status': status.name})
+        .eq('id', applicationId)
+        .select('user_id, internship:${DatabaseConstants.internships}(title)')
+        .single();
+
+    // Fire-and-forget: notify the student of the status change.
+    _notifyStudentOfStatusChange(response, status).ignore();
+  }
+
+  Future<void> _notifyStudentOfStatusChange(
+    Map<String, dynamic> appData,
+    ApplicationStatus status,
+  ) async {
+    try {
+      final userId = appData['user_id'] as String?;
+      if (userId == null) return;
+      final internship =
+          appData['internship'] as Map<String, dynamic>?;
+      final title = internship?['title'] as String? ?? 'your application';
+
+      final statusLabel = switch (status) {
+        ApplicationStatus.accepted => 'Congratulations! You\'ve been accepted',
+        ApplicationStatus.reviewed => 'Your application was reviewed',
+        ApplicationStatus.rejected => 'Your application status was updated',
+        ApplicationStatus.pending => 'Your application is pending',
+      };
+
+      await _supabase.functions.invoke(
+        'send-notification',
+        body: {
+          'targetUserId': userId,
+          'title': statusLabel,
+          'body': 'Re: "$title"',
+          'data': {'type': 'status_update'},
+        },
+      );
+    } catch (_) {
+      // Notification is non-critical; silently ignore failures.
+    }
   }
 }

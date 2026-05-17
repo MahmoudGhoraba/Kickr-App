@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kickr/core/constants/role_constants.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/features/applications/presentation/screens/applications_screen.dart';
 import 'package:kickr/features/company/presentation/screens/company_dashboard_screen.dart';
+import 'package:kickr/features/company/presentation/screens/company_profile_screen.dart';
 import 'package:kickr/features/internships/presentation/screens/internship_feed_screen.dart';
 import 'package:kickr/features/internships/presentation/screens/saved_internships_screen.dart';
 import 'package:kickr/features/profile/presentation/providers/profile_providers.dart';
 import 'package:kickr/features/profile/presentation/screens/profile_stub_screen.dart';
+import 'package:kickr/shared/services/notifications/notification_service.dart';
+import 'package:kickr/shared/services/notifications/notification_token_service.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -18,10 +22,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
+  bool _notificationsInitialized = false;
 
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(currentProfileProvider);
+
+    // Init notifications once the user's profile loads.
+    ref.listen(currentProfileProvider, (_, next) {
+      final userId = next.valueOrNull?.id;
+      if (userId != null && !_notificationsInitialized) {
+        _notificationsInitialized = true;
+        _initNotifications(userId);
+      }
+    });
 
     return profileAsync.when(
       loading: () => const Scaffold(
@@ -39,6 +53,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : _buildStudentHome();
       },
     );
+  }
+
+  Future<void> _initNotifications(String userId) async {
+    final tokenService =
+        NotificationTokenService(Supabase.instance.client);
+    final service = NotificationService(tokenService);
+    await service.init(userId);
   }
 
   Widget _buildStudentHome() {
@@ -90,7 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildCompanyHome() {
     const tabs = [
       CompanyDashboardScreen(),
-      ProfileScreen(),
+      CompanyProfileScreen(),
     ];
 
     if (_currentIndex >= tabs.length) _currentIndex = 0;

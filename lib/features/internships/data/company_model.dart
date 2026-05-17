@@ -8,6 +8,8 @@ class Company {
     this.industry,
     this.location,
     this.ownerId,
+    this.companySize,
+    this.cultureDescription,
   });
 
   final String id;
@@ -17,6 +19,8 @@ class Company {
   final String? description;
   final String? industry;
   final String? location;
+  final String? companySize;
+  final String? cultureDescription;
 
   /// Set when a company account created the record via the app.
   /// Null for seeded/demo companies without a linked owner account.
@@ -31,5 +35,7 @@ class Company {
         industry: json['industry'] as String?,
         location: json['location'] as String?,
         ownerId: json['owner_id'] as String?,
+        companySize: json['company_size'] as String?,
+        cultureDescription: json['culture_description'] as String?,
       );
 }

@@ -7,6 +7,7 @@ import 'package:kickr/features/company/data/applicant_entry.dart';
 import 'package:kickr/features/company/data/company_repository.dart';
 import 'package:kickr/features/internships/data/company_model.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
+import 'package:kickr/shared/services/storage_service.dart';
 
 // ─── Repository ───────────────────────────────────────────────────────────────
 
@@ -144,6 +145,8 @@ class ApplicantsNotifier
               university: entry.university,
               major: entry.major,
               avatarUrl: entry.avatarUrl,
+              academicYear: entry.academicYear,
+              skills: entry.skills,
             )
           else
             entry,
@@ -262,6 +265,7 @@ class InternshipFormState {
     this.skills = const [],
     this.isActive = true,
     this.skillInput = '',
+    this.deadline,
   });
 
   final bool isLoading;
@@ -276,6 +280,7 @@ class InternshipFormState {
   final List<String> skills;
   final bool isActive;
   final String skillInput;
+  final DateTime? deadline;
 
   InternshipFormState copyWith({
     bool? isLoading,
@@ -290,7 +295,9 @@ class InternshipFormState {
     List<String>? skills,
     bool? isActive,
     String? skillInput,
+    DateTime? deadline,
     bool clearError = false,
+    bool clearDeadline = false,
   }) =>
       InternshipFormState(
         isLoading: isLoading ?? this.isLoading,
@@ -305,6 +312,7 @@ class InternshipFormState {
         skills: skills ?? this.skills,
         isActive: isActive ?? this.isActive,
         skillInput: skillInput ?? this.skillInput,
+        deadline: clearDeadline ? null : (deadline ?? this.deadline),
       );
 }
 
@@ -343,6 +351,7 @@ class InternshipFormNotifier extends StateNotifier<InternshipFormState> {
       category: internship.category ?? '',
       skills: List.from(internship.requiredSkills),
       isActive: internship.isActive,
+      deadline: internship.deadline,
     );
   }
 
@@ -357,6 +366,8 @@ class InternshipFormNotifier extends StateNotifier<InternshipFormState> {
   void setCategory(String v) => state = state.copyWith(category: v);
   void setIsActive(bool v) => state = state.copyWith(isActive: v);
   void setSkillInput(String v) => state = state.copyWith(skillInput: v);
+  void setDeadline(DateTime? v) =>
+      v == null ? state = state.copyWith(clearDeadline: true) : state = state.copyWith(deadline: v);
 
   void addSkill() {
     final skill = state.skillInput.trim();
@@ -406,6 +417,7 @@ class InternshipFormNotifier extends StateNotifier<InternshipFormState> {
           type: state.type,
           category: state.category.trim().isEmpty ? null : state.category.trim(),
           requiredSkills: state.skills,
+          deadline: state.deadline,
         );
       } else {
         result = await _repo.updateInternship(
@@ -420,6 +432,7 @@ class InternshipFormNotifier extends StateNotifier<InternshipFormState> {
           category: state.category.trim().isEmpty ? null : state.category.trim(),
           requiredSkills: state.skills,
           isActive: state.isActive,
+          deadline: state.deadline,
         );
       }
 
@@ -440,6 +453,192 @@ class InternshipFormNotifier extends StateNotifier<InternshipFormState> {
 
   String _extractError(Object e) {
     if (e is PostgrestException) return 'Could not save internship. Please try again.';
+    return 'Something went wrong. Please try again.';
+  }
+}
+
+// ─── Company profile edit ────────────────────────────────────────────────────
+
+class CompanyEditState {
+  const CompanyEditState({
+    this.isLoading = false,
+    this.error,
+    this.isSuccess = false,
+    this.name = '',
+    this.description = '',
+    this.industry = '',
+    this.location = '',
+    this.website = '',
+    this.companySize,
+    this.cultureDescription = '',
+    this.currentLogoUrl,
+    this.pickedLogoBytes,
+    this.pickedLogoExt,
+  });
+
+  final bool isLoading;
+  final String? error;
+  final bool isSuccess;
+  final String name;
+  final String description;
+  final String industry;
+  final String location;
+  final String website;
+  final String? companySize;
+  final String cultureDescription;
+  final String? currentLogoUrl;
+  final Uint8List? pickedLogoBytes;
+  final String? pickedLogoExt;
+
+  bool get hasPickedLogo => pickedLogoBytes != null;
+
+  CompanyEditState copyWith({
+    bool? isLoading,
+    String? error,
+    bool? isSuccess,
+    String? name,
+    String? description,
+    String? industry,
+    String? location,
+    String? website,
+    String? companySize,
+    String? cultureDescription,
+    String? currentLogoUrl,
+    Uint8List? pickedLogoBytes,
+    String? pickedLogoExt,
+    bool clearError = false,
+    bool clearPickedLogo = false,
+    bool clearCompanySize = false,
+  }) =>
+      CompanyEditState(
+        isLoading: isLoading ?? this.isLoading,
+        error: clearError ? null : (error ?? this.error),
+        isSuccess: isSuccess ?? this.isSuccess,
+        name: name ?? this.name,
+        description: description ?? this.description,
+        industry: industry ?? this.industry,
+        location: location ?? this.location,
+        website: website ?? this.website,
+        companySize: clearCompanySize ? null : (companySize ?? this.companySize),
+        cultureDescription: cultureDescription ?? this.cultureDescription,
+        currentLogoUrl: currentLogoUrl ?? this.currentLogoUrl,
+        pickedLogoBytes:
+            clearPickedLogo ? null : (pickedLogoBytes ?? this.pickedLogoBytes),
+        pickedLogoExt:
+            clearPickedLogo ? null : (pickedLogoExt ?? this.pickedLogoExt),
+      );
+}
+
+final companyEditProvider =
+    StateNotifierProvider.autoDispose<CompanyEditNotifier, CompanyEditState>(
+        (ref) {
+  return CompanyEditNotifier(
+    repository: ref.read(companyRepositoryProvider),
+    storageService: StorageService(Supabase.instance.client),
+    onSuccess: () => ref.invalidate(currentCompanyProvider),
+  );
+});
+
+class CompanyEditNotifier extends StateNotifier<CompanyEditState> {
+  CompanyEditNotifier({
+    required CompanyRepository repository,
+    required StorageService storageService,
+    required VoidCallback onSuccess,
+  })  : _repo = repository,
+        _storage = storageService,
+        _onSuccess = onSuccess,
+        super(const CompanyEditState());
+
+  final CompanyRepository _repo;
+  final StorageService _storage;
+  final VoidCallback _onSuccess;
+
+  void init(Company company) {
+    state = state.copyWith(
+      name: company.name,
+      description: company.description ?? '',
+      industry: company.industry ?? '',
+      location: company.location ?? '',
+      website: company.website ?? '',
+      companySize: company.companySize,
+      cultureDescription: company.cultureDescription ?? '',
+      currentLogoUrl: company.logoUrl,
+    );
+  }
+
+  Future<void> pickLogo() async {
+    try {
+      final result = await _storage.pickCompanyLogoFile();
+      if (result == null) return;
+      if (mounted) {
+        state = state.copyWith(
+            pickedLogoBytes: result.bytes, pickedLogoExt: result.extension);
+      }
+    } catch (e) {
+      if (mounted) state = state.copyWith(error: e.toString());
+    }
+  }
+
+  void setCompanySize(String? size) {
+    if (size == null) {
+      state = state.copyWith(clearCompanySize: true);
+    } else {
+      state = state.copyWith(companySize: size);
+    }
+  }
+
+  Future<void> save({
+    required String companyId,
+    required String name,
+    required String description,
+    required String industry,
+    required String location,
+    required String website,
+    required String cultureDescription,
+  }) async {
+    if (name.trim().isEmpty) {
+      state = state.copyWith(error: 'Company name is required.');
+      return;
+    }
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      String? logoUrl = state.currentLogoUrl;
+
+      if (state.hasPickedLogo) {
+        logoUrl = await _storage.uploadCompanyLogo(
+          companyId: companyId,
+          bytes: state.pickedLogoBytes!,
+          extension: state.pickedLogoExt!,
+        );
+      }
+
+      await _repo.updateCompany(
+        companyId: companyId,
+        name: name.trim(),
+        description: description.trim().isEmpty ? null : description.trim(),
+        industry: industry.trim().isEmpty ? null : industry.trim(),
+        location: location.trim().isEmpty ? null : location.trim(),
+        website: website.trim().isEmpty ? null : website.trim(),
+        companySize: state.companySize,
+        cultureDescription:
+            cultureDescription.trim().isEmpty ? null : cultureDescription.trim(),
+        logoUrl: logoUrl,
+      );
+
+      if (mounted) {
+        _onSuccess();
+        state = state.copyWith(isLoading: false, isSuccess: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(isLoading: false, error: _extractError(e));
+      }
+    }
+  }
+
+  String _extractError(Object e) {
+    if (e is PostgrestException) return 'Could not update company. Please try again.';
     return 'Something went wrong. Please try again.';
   }
 }

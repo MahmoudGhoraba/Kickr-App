@@ -15,4 +15,12 @@ abstract final class StorageConstants {
   /// Format: {userId}/avatar.{ext}
   static String avatarPath(String userId, String ext) =>
       '$userId/avatar.$ext';
+
+  /// Supabase Storage bucket for company logos.
+  static const String logosBucket = 'company-logos';
+
+  /// Fixed-name logo path so each upload replaces the previous file.
+  /// Format: {companyId}/logo.{ext}
+  static String logoPath(String companyId, String ext) =>
+      '$companyId/logo.$ext';
 }

@@ -45,6 +45,13 @@
         </dict>
     </array>
 
+    <!-- Push Notifications -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+        <string>fetch</string>
+    </array>
+
     <!-- Permissions for Stage 2 (Photos/CV Uploads) -->
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Kickr needs access to your library so you can upload your CV and profile picture.</string>

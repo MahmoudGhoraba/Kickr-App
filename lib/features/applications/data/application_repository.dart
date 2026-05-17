@@ -37,7 +37,34 @@ class ApplicationRepository {
             '*, internship:${DatabaseConstants.internships}(*, company:${DatabaseConstants.companies}(*))')
         .single();
 
-    return Application.fromJson(response);
+    final app = Application.fromJson(response);
+
+    // Fire-and-forget: notify the company owner of the new application.
+    // Runs server-side via Edge Function — never send FCM directly from client.
+    _notifyCompanyOfApplication(app).ignore();
+
+    return app;
+  }
+
+  Future<void> _notifyCompanyOfApplication(Application app) async {
+    try {
+      final internship = app.internship;
+      if (internship == null) return;
+      final ownerId = internship.company?.ownerId;
+      if (ownerId == null) return;
+
+      await _supabase.functions.invoke(
+        'send-notification',
+        body: {
+          'targetUserId': ownerId,
+          'title': 'New application received',
+          'body': 'Someone applied to "${internship.title}"',
+          'data': {'internshipId': internship.id},
+        },
+      );
+    } catch (_) {
+      // Notification is non-critical; silently ignore failures.
+    }
   }
 
   // ─── Profile CV helpers ───────────────────────────────────────────────────────

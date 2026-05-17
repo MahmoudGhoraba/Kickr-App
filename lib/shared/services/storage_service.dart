@@ -126,4 +126,49 @@ class StorageService {
         'gif' => 'image/gif',
         _ => 'image/jpeg',
       };
+
+  /// Returns null if the user cancelled the picker.
+  Future<AvatarPickResult?> pickCompanyLogoFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return null;
+
+    final file = result.files.single;
+    final bytes = file.bytes;
+
+    if (bytes == null) {
+      throw Exception('Could not read image. Please try again.');
+    }
+
+    if (bytes.lengthInBytes > AppConstants.avatarMaxBytes) {
+      throw Exception('Image too large. Maximum size is 2 MB.');
+    }
+
+    final ext = (file.extension ?? 'jpg').toLowerCase();
+    return AvatarPickResult(bytes: bytes, extension: ext);
+  }
+
+  /// Uploads company logo to [StorageConstants.logosBucket].
+  /// Returns the public URL.
+  Future<String> uploadCompanyLogo({
+    required String companyId,
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final path = StorageConstants.logoPath(companyId, extension);
+    final contentType = _avatarContentType(extension);
+
+    await _supabase.storage.from(StorageConstants.logosBucket).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: contentType, upsert: true),
+        );
+
+    return _supabase.storage
+        .from(StorageConstants.logosBucket)
+        .getPublicUrl(path);
+  }
 }

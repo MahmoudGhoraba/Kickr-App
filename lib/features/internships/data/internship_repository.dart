@@ -65,4 +65,21 @@ class InternshipRepository {
         .delete()
         .match({'user_id': userId, 'internship_id': internshipId});
   }
+
+  // ─── View tracking ────────────────────────────────────────────────────────────
+
+  /// Records that [userId] viewed [internshipId]. Silently ignores duplicates
+  /// (UNIQUE constraint on (internship_id, viewer_id) → onConflict: ignore).
+  Future<void> trackView({
+    required String internshipId,
+    required String userId,
+  }) async {
+    await _supabase.from(DatabaseConstants.internshipViews).upsert(
+      {
+        'internship_id': internshipId,
+        'viewer_id': userId,
+      },
+      onConflict: 'internship_id,viewer_id',
+    );
+  }
 }

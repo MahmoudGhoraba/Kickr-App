@@ -4,6 +4,10 @@ import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/profile/data/profile_model.dart';
 import 'package:kickr/features/profile/presentation/providers/profile_providers.dart';
+import 'package:kickr/features/profile/presentation/widgets/academic_year_selector.dart';
+import 'package:kickr/features/profile/presentation/widgets/major_selector_field.dart';
+import 'package:kickr/features/profile/presentation/widgets/skills_input_field.dart';
+import 'package:kickr/features/profile/presentation/widgets/university_selector_field.dart';
 import 'package:kickr/shared/widgets/app_button.dart';
 import 'package:kickr/shared/widgets/app_text_field.dart';
 
@@ -19,10 +23,7 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _nameCtrl = TextEditingController();
-  final _uniCtrl = TextEditingController();
-  final _majorCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
-  final _skillCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -39,8 +40,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   void _initFromProfile(Profile profile) {
     _nameCtrl.text = profile.fullName ?? '';
-    _uniCtrl.text = profile.university ?? '';
-    _majorCtrl.text = profile.major ?? '';
     _bioCtrl.text = profile.bio ?? '';
     ref.read(profileEditProvider.notifier).init(profile);
   }
@@ -48,10 +47,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _uniCtrl.dispose();
-    _majorCtrl.dispose();
     _bioCtrl.dispose();
-    _skillCtrl.dispose();
     super.dispose();
   }
 
@@ -102,6 +98,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               ),
             ),
             const SizedBox(height: 32),
+
+            // ── Full Name ──────────────────────────────────────────────
             AppTextField(
               label: 'Full Name',
               hint: 'Ahmed Mohamed',
@@ -113,26 +111,32 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               onFieldSubmitted: (_) {},
             ),
             const SizedBox(height: 20),
-            AppTextField(
-              label: 'University',
-              hint: 'Cairo University',
-              controller: _uniCtrl,
-              textInputAction: TextInputAction.next,
-              prefixIcon: Icons.school_outlined,
+
+            // ── University ─────────────────────────────────────────────
+            UniversitySelectorField(
+              value: state.university,
+              onChanged: notifier.setUniversity,
               enabled: !state.isLoading,
-              onFieldSubmitted: (_) {},
             ),
             const SizedBox(height: 20),
-            AppTextField(
-              label: 'Major',
-              hint: 'Computer Science',
-              controller: _majorCtrl,
-              textInputAction: TextInputAction.next,
-              prefixIcon: Icons.auto_stories_outlined,
+
+            // ── Major ──────────────────────────────────────────────────
+            MajorSelectorField(
+              initialValue: state.major,
+              onChanged: notifier.setMajor,
               enabled: !state.isLoading,
-              onFieldSubmitted: (_) {},
             ),
             const SizedBox(height: 20),
+
+            // ── Academic Year ──────────────────────────────────────────
+            AcademicYearSelector(
+              value: state.academicYear,
+              onChanged: notifier.setAcademicYear,
+              enabled: !state.isLoading,
+            ),
+            const SizedBox(height: 20),
+
+            // ── Bio ────────────────────────────────────────────────────
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -150,58 +154,16 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            Text('Skills', style: AppTextStyles.labelMedium),
-            const SizedBox(height: 10),
-            if (state.skills.isNotEmpty) ...[
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: state.skills
-                    .map((s) => _EditableSkillChip(
-                          label: s,
-                          onRemove: () => notifier.removeSkill(s),
-                        ))
-                    .toList(),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: AppTextField(
-                    label: '',
-                    hint: 'e.g. Flutter',
-                    controller: _skillCtrl,
-                    textInputAction: TextInputAction.done,
-                    enabled: !state.isLoading,
-                    onFieldSubmitted: (_) {
-                      notifier.setSkillInput(_skillCtrl.text);
-                      notifier.addSkill();
-                      _skillCtrl.clear();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 52),
-                    ),
-                    onPressed: state.isLoading
-                        ? null
-                        : () {
-                            notifier.setSkillInput(_skillCtrl.text);
-                            notifier.addSkill();
-                            _skillCtrl.clear();
-                          },
-                    child: const Text('Add'),
-                  ),
-                ),
-              ],
+
+            // ── Skills ─────────────────────────────────────────────────
+            SkillsInputField(
+              skills: state.skills,
+              onAdd: notifier.addSkill,
+              onRemove: notifier.removeSkill,
+              enabled: !state.isLoading,
             ),
             const SizedBox(height: 36),
+
             AppButton(
               label: 'Save Changes',
               isLoading: state.isLoading,
@@ -209,8 +171,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   ? null
                   : () {
                       notifier.setFullName(_nameCtrl.text);
-                      notifier.setUniversity(_uniCtrl.text);
-                      notifier.setMajor(_majorCtrl.text);
                       notifier.setBio(_bioCtrl.text);
                       notifier.save();
                     },
@@ -292,46 +252,6 @@ class _AvatarDisplay extends StatelessWidget {
         Icons.person_outline_rounded,
         size: 40,
         color: AppColors.primary,
-      ),
-    );
-  }
-}
-
-class _EditableSkillChip extends StatelessWidget {
-  const _EditableSkillChip({required this.label, required this.onRemove});
-
-  final String label;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withAlpha(60)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          GestureDetector(
-            onTap: onRemove,
-            child: const Icon(
-              Icons.close_rounded,
-              size: 14,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
       ),
     );
   }

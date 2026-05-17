@@ -5,6 +5,7 @@ import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
 import 'package:kickr/features/internships/presentation/providers/internship_providers.dart';
 import 'package:kickr/features/internships/presentation/widgets/company_avatar.dart';
+import 'package:kickr/features/internships/presentation/widgets/deadline_badge.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_chips.dart';
 
 class InternshipCard extends ConsumerWidget {
@@ -111,6 +112,10 @@ class InternshipCard extends ConsumerWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+            ],
+            if (internship.deadline != null) ...[
+              const SizedBox(height: 8),
+              DeadlineBadge(deadline: internship.deadline!),
             ],
             if (internship.requiredSkills.isNotEmpty) ...[
               const SizedBox(height: 12),

@@ -70,6 +70,10 @@ class ApplicantCard extends StatelessWidget {
               ),
             ],
           ),
+          if (entry.skills.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _ApplicantSkillChips(skills: entry.skills),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
@@ -169,6 +173,53 @@ class _ApplicantAvatar extends StatelessWidget {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
     return name.isEmpty ? 'A' : name[0].toUpperCase();
+  }
+}
+
+class _ApplicantSkillChips extends StatelessWidget {
+  const _ApplicantSkillChips({required this.skills});
+
+  final List<String> skills;
+
+  @override
+  Widget build(BuildContext context) {
+    const maxVisible = 4;
+    final visible = skills.take(maxVisible).toList();
+    final overflow = skills.length - maxVisible;
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        ...visible.map(
+          (s) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withAlpha(50)),
+            ),
+            child: Text(
+              s,
+              style: AppTextStyles.badge.copyWith(color: AppColors.primary),
+            ),
+          ),
+        ),
+        if (overflow > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              '+$overflow more',
+              style: AppTextStyles.badge.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+      ],
+    );
   }
 }
 
