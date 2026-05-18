@@ -4,7 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/applications/data/application_model.dart';
+import 'package:kickr/features/company/data/applicant_entry.dart';
 import 'package:kickr/features/company/presentation/providers/company_providers.dart';
+import 'package:kickr/features/company/presentation/screens/applicant_profile_screen.dart';
 import 'package:kickr/features/company/presentation/widgets/applicant_card.dart';
 import 'package:kickr/shared/widgets/app_button.dart';
 
@@ -56,6 +58,8 @@ class ApplicantListScreen extends ConsumerWidget {
                           status,
                         ),
                         onViewCv: () => _openCv(context, list[i].application.cvUrl),
+                        onViewProfile: () =>
+                            _openProfile(context, list[i]),
                       ),
                     ],
                   ],
@@ -90,19 +94,47 @@ class ApplicantListScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _openCv(BuildContext context, String cvUrl) async {
-    final uri = Uri.tryParse(cvUrl);
-    if (uri == null) return;
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open CV. Copy the URL manually.'),
-          behavior: SnackBarBehavior.floating,
+  void _openProfile(BuildContext context, ApplicantEntry entry) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ApplicantProfileScreen(
+          entry: entry,
+          internshipId: internshipId,
         ),
-      );
+      ),
+    );
+  }
+
+  Future<void> _openCv(BuildContext context, String cvUrl) async {
+    final uri = Uri.tryParse(cvUrl.trim());
+    if (uri == null || !uri.isAbsolute) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('CV link is not available.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      // platformDefault uses SFSafariViewController on iOS (works on device +
+      // simulator) and Chrome Custom Tabs on Android — most reliable on both.
+      final opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
+      if (!opened) {
+        // Fallback: ask the OS to open it in whatever external app it prefers.
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open CV.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 }

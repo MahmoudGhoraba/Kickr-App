@@ -8,4 +8,7 @@ abstract final class AppConstants {
 
   /// Maximum permitted avatar image size (2 MB).
   static const int avatarMaxBytes = 2 * 1024 * 1024;
+
+  /// Maximum permitted student ID image size (5 MB).
+  static const int studentIdMaxBytes = 5 * 1024 * 1024;
 }

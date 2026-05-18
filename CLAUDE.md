@@ -167,11 +167,14 @@ HomeScreen (role-based IndexedStack + NavigationBar)
   → company role → 2-tab layout
 
   Student Tab 0: InternshipFeedScreen
-    → reads filteredInternshipsProvider (derived from internshipsProvider + internshipFilterProvider)
+    → reads personalizedFeedProvider (re-sorts filteredInternshipsProvider by personalization score)
+    → "Closing Soon" horizontal carousel from closingSoonProvider (deadline ≤5 days)
+    → "For You" section label when profile has personalization data, "All Internships" otherwise
     → pull-to-refresh calls internshipsProvider.notifier.fetch()
     → AppSearchBar updates internshipFilterProvider.notifier.setQuery()
     → InternshipFilterBar updates internshipFilterProvider.notifier.toggleType()
     → each InternshipCard navigates to /internships/:id via context.push()
+    → InternshipCard shows a "New" badge when internship.isNew (created within 48h)
 
   Student Tab 1: SavedInternshipsScreen
     → reads savedInternshipListProvider (derived — cross-refs internshipsProvider + savedInternshipIdsProvider)
@@ -184,12 +187,20 @@ HomeScreen (role-based IndexedStack + NavigationBar)
     → reads currentProfileProvider, authStateProvider
     → Edit Profile button: context.push(AppRoutes.profileEdit, extra: profile)
 
+  HomeScreen also watches three realtime providers (all autoDispose, no-op sinks):
+    → internshipsRealtimeProvider — triggers backgroundRefresh() on internship INSERT/UPDATE
+    → applicationsRealtimeProvider — triggers backgroundRefresh() on application UPDATE (student status changes)
+    → companyApplicationsRealtimeProvider — triggers applicantsProvider.refresh() on application INSERT (company new applicants)
+    → ref.listen(fcmForegroundProvider) → shows branded deep-blue SnackBar for foreground FCM messages
+
   Company Tab 0: CompanyDashboardScreen
     → reads currentCompanyProvider (FutureProvider<Company?>)
     → company guaranteed to exist (router gate prevents reaching /home without one)
     → reads companyInternshipsProvider (StateNotifier)
     → CompanyInternshipCard: edit pushes CompanyInternshipFormScreen; applicants button
       pushes ApplicantListScreen; archive calls notifier.archiveInternship()
+    → ApplicantListScreen: tapping "Profile" on an ApplicantCard pushes ApplicantProfileScreen
+      via MaterialPageRoute (not in GoRouter) — watches live applicantsProvider to keep status in sync
     → FAB pushes CompanyInternshipFormScreen (create mode, extra: companyId)
 
   Company Tab 1: CompanyProfileScreen
@@ -209,6 +220,8 @@ InternshipDetailScreen (pushed on top of /home)
 **Optimistic save toggle:** `SavedInternshipsNotifier` snapshots the current `Set<String>`, applies the toggle immediately, awaits the Supabase call, and rolls back to the snapshot on failure.
 
 **Derived providers avoid extra queries:** `filteredInternshipsProvider` filters the in-memory list. `savedInternshipListProvider` cross-references `internshipsProvider` with the saved ID set — no second Supabase call for the Saved tab. `hasAppliedProvider` derives from the in-memory `applicationsProvider` list — no per-screen query.
+
+**`backgroundRefresh()` pattern:** Both `InternshipsNotifier` and `ApplicationsNotifier` expose `backgroundRefresh()` alongside `fetch()`. It re-fetches from Supabase but does NOT set `state = AsyncValue.loading()` first — the existing list stays visible (no spinner flicker) while the new data loads in. This is the method called by all realtime providers so live updates are invisible to the user.
 
 **IndexedStack eagerness:** all four tab screens are created when `HomeScreen` builds. This means `applicationsProvider` starts fetching before the user can navigate to a detail screen, so `hasAppliedProvider` is populated by the time the Apply bar is visible.
 
@@ -259,7 +272,10 @@ completeProfileProvider             StateNotifierProvider.autoDispose<CompletePr
 internshipRepositoryProvider        Provider<InternshipRepository>
 internshipsProvider                 StateNotifierProvider<InternshipsNotifier, AsyncValue<List<Internship>>>
 internshipFilterProvider            StateNotifierProvider<InternshipFilterNotifier, InternshipFilter>
-filteredInternshipsProvider         Provider<AsyncValue<List<Internship>>>    ← derived
+filteredInternshipsProvider         Provider<AsyncValue<List<Internship>>>    ← derived (filter only)
+personalizedFeedProvider            Provider<AsyncValue<List<Internship>>>    ← derived (filter + score sort)
+closingSoonProvider                 Provider<AsyncValue<List<Internship>>>    ← derived (deadline ≤5 days)
+recentlyPostedProvider              Provider<AsyncValue<List<Internship>>>    ← derived (created ≤3 days)
 savedInternshipIdsProvider          StateNotifierProvider<SavedInternshipsNotifier, AsyncValue<Set<String>>>
 savedInternshipListProvider         Provider<AsyncValue<List<Internship>>>    ← derived
 internshipDetailProvider            FutureProvider.family<Internship, String>
@@ -284,6 +300,14 @@ applicantsProvider                  StateNotifierProvider.autoDispose.family<App
 companySetupProvider                StateNotifierProvider.autoDispose<CompanySetupNotifier, CompanySetupState>
 companyEditProvider                 StateNotifierProvider.autoDispose<CompanyEditNotifier, CompanyEditState>
 internshipFormProvider              StateNotifierProvider.autoDispose<InternshipFormNotifier, InternshipFormState>
+
+── Realtime (autoDispose, watched in HomeScreen — pure side-effect sinks) ──
+internshipsRealtimeProvider         Provider.autoDispose<void>
+applicationsRealtimeProvider        Provider.autoDispose<void>
+companyApplicationsRealtimeProvider Provider.autoDispose<void>
+
+── Notifications ─────────────────────────────────────────────────────────
+fcmForegroundProvider               StreamProvider<RemoteMessage>             ← FirebaseMessaging.onMessage
 ```
 
 ### Storage service
@@ -370,6 +394,11 @@ Path builders: `AppRoutes.internshipDetailPath(id)`, `AppRoutes.companyInternshi
 | `shared/services/` | `StorageService` | CV + avatar + company logo pick/upload; the only entry point for Supabase Storage |
 | `shared/services/notifications/` | `NotificationService` | FCM init, permission request, foreground handler |
 | `shared/services/notifications/` | `NotificationTokenService` | Token upsert/delete to `notification_tokens` table |
+| `shared/services/notifications/` | `notification_providers.dart` | `fcmForegroundProvider` StreamProvider |
+| `shared/services/realtime/` | `internships_realtime_service.dart` | `internshipsRealtimeProvider` — subscribes to internship INSERT/UPDATE |
+| `shared/services/realtime/` | `applications_realtime_service.dart` | `applicationsRealtimeProvider` — subscribes to application UPDATE (no server-side filter — see note below) |
+| `shared/services/realtime/` | `company_realtime_service.dart` | `companyApplicationsRealtimeProvider` — subscribes to application INSERT, filters in memory via companyInternshipsProvider |
+| `shared/services/personalization/` | `internship_scoring_service.dart` | `scoreInternship(internship, profile)` — +15/skill match, +20/major-category, +8/major keyword in title |
 
 Internship-specific widgets: `features/internships/presentation/widgets/` — `InternshipCard`, `CompanyAvatar`, `InternshipTypeBadge`, `InternshipSkillChips`, `InternshipFilterBar`.
 
@@ -380,6 +409,41 @@ Application-specific widgets: `features/applications/presentation/widgets/` — 
 Company-specific widgets: `features/company/presentation/widgets/` — `CompanyInternshipCard`, `ApplicantCard`.
 
 All styling comes from `AppColors` and `AppTextStyles`. Never use hardcoded `Color(...)` or raw `TextStyle(...)` in screens.
+
+### Realtime subscription architecture
+
+Each realtime provider follows the same pattern:
+1. `Provider.autoDispose<void>` — disposed when `HomeScreen` leaves the tree, which cancels the Supabase channel.
+2. A `bool disposed` flag + `ref.onDispose` guard prevents callbacks firing after disposal.
+3. Callbacks call `backgroundRefresh()` (not `fetch()`) to avoid loading-spinner flicker.
+
+**Supabase Realtime prerequisites** (one-time SQL, run in Supabase SQL Editor):
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.applications;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.internships;
+```
+Without these, channel subscriptions succeed but no events are delivered.
+
+**Server-side UPDATE filters require `REPLICA IDENTITY FULL`:** Supabase's PostgreSQL Realtime only includes the PK in UPDATE payloads by default. If you add a `PostgresChangeFilter` on a non-PK column for UPDATE events, the filter will never match because the column value is absent from the payload. Either run `ALTER TABLE <table> REPLICA IDENTITY FULL;` or (preferred at MVP scale) remove the server-side filter and do client-side filtering — RLS on the subsequent `backgroundRefresh()` fetch enforces security.
+
+**Company realtime filtering without a `company_id` column:** The `applications` table has no `company_id` column. `companyApplicationsRealtimeProvider` reads `companyInternshipsProvider` in memory (via `ref.read` — no reactive dependency) to filter incoming application INSERT payloads by `internship_id`, avoiding a DB join or extra query.
+
+### Opening URLs (url_launcher)
+
+Always use `platformDefault` as the primary mode, `externalApplication` as fallback — never the reverse:
+
+```dart
+final uri = Uri.tryParse(url.trim());
+if (uri == null || !uri.isAbsolute) { /* show snackbar */ return; }
+try {
+  final opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
+  if (!opened) await launchUrl(uri, mode: LaunchMode.externalApplication);
+} catch (_) { /* show snackbar */ }
+```
+
+`platformDefault` uses `SFSafariViewController` on iOS (works on both device and simulator) and Chrome Custom Tabs on Android — the most reliable path on both platforms. `LaunchMode.externalApplication` on iOS uses `UIApplication.openURL`, which can silently fail on simulators.
+
+**Android 11+ package visibility:** `canLaunchUrl` returns `false` for any URL scheme not declared in `<queries>` in `android/app/src/main/AndroidManifest.xml`. The manifest already declares `https`, `http`, and `application/pdf`. Do not use `canLaunchUrl` — wrap `launchUrl` in try-catch instead.
 
 ### Theme
 
@@ -445,6 +509,18 @@ See `docs/stage4_summary.md` for full SQL migrations, storage setup, and RLS pol
 - Mandatory company profile gate: `CompleteCompanyScreen` at `/company/setup`, enforced by router redirect via `currentCompanyProvider`
 - `CompanyProfileScreen` replaces student `ProfileScreen` in the company tab bar — shows logo, company info, culture, edit button
 - See `docs/product_engagement_upgrade.md` for full DB migrations, Edge Function setup, and future recommendations.
+
+**Real-time & personalization upgrade delivered (between Stage 5 and Stage 6):**
+- Supabase Realtime channels for internships (INSERT/UPDATE) and applications (UPDATE/INSERT)
+- `backgroundRefresh()` on `InternshipsNotifier` and `ApplicationsNotifier` — no loading flicker
+- Three `autoDispose` realtime providers watched by `HomeScreen`; channels tear down on navigate-away
+- `InternshipFeedScreen` redesigned with "Closing Soon" horizontal carousel and "For You" personalized section
+- `scoreInternship()` — deterministic in-memory scoring (skills overlap, major→category match, keyword scan)
+- `Internship.isNew` getter (48h window) drives green "New" badge on `InternshipCard`
+- `fcmForegroundProvider` StreamProvider — `HomeScreen` shows branded SnackBar for foreground FCM messages
+- `ApplicantProfileScreen` — full student profile for company reviewers; watches live `applicantsProvider` for instant status sync; pushed via `MaterialPageRoute` (not in GoRouter)
+- CV opening fixed for Android (manifest `<queries>`) and iOS (`platformDefault` first)
+- `docs/admin_metrics.md` — 7 SQL queries for Supabase SQL Editor (platform snapshot, activation funnel, top internships, company activity, recent signups, per-company breakdown, closing soon)
 
 **Stage 6 will add:** AI CV analysis, AI cover letter generation, AI interview prep. Do not begin Stage 6 without reading `docs/product_engagement_upgrade.md` first.
 

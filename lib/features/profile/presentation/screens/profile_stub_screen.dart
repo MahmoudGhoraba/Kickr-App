@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:kickr/core/router/app_router.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
+import 'package:kickr/core/constants/role_constants.dart';
 import 'package:kickr/features/auth/presentation/providers/auth_providers.dart';
 import 'package:kickr/features/profile/data/profile_model.dart';
 import 'package:kickr/features/profile/presentation/providers/profile_providers.dart';
+import 'package:kickr/features/verification/presentation/widgets/verification_badge.dart';
 import 'package:kickr/shared/widgets/app_button.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -93,6 +95,10 @@ class _ProfileBody extends StatelessWidget {
               icon: const Icon(Icons.edit_outlined, size: 18),
             ),
           ),
+          if (profile?.effectiveRole == UserRole.student) ...[
+            const SizedBox(height: 16),
+            _VerificationCard(profile: profile!),
+          ],
           if (profile?.bio != null && profile!.bio!.isNotEmpty) ...[
             const SizedBox(height: 20),
             _SectionCard(
@@ -253,6 +259,99 @@ class _SectionCard extends StatelessWidget {
           Text(title, style: AppTextStyles.labelMedium),
           const SizedBox(height: 10),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+class _VerificationCard extends StatelessWidget {
+  const _VerificationCard({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = profile.verificationStatus;
+    final isVerified = status == VerificationStatus.verified;
+    final isPending = status == VerificationStatus.pending;
+
+    final bgColor = isVerified
+        ? AppColors.successBg
+        : isPending
+            ? AppColors.warningBg
+            : AppColors.infoBg;
+    final borderColor = isVerified
+        ? AppColors.success
+        : isPending
+            ? AppColors.warning
+            : AppColors.info;
+    final icon = isVerified
+        ? Icons.verified_rounded
+        : isPending
+            ? Icons.schedule_rounded
+            : Icons.shield_outlined;
+    final iconColor = isVerified
+        ? AppColors.success
+        : isPending
+            ? AppColors.warning
+            : AppColors.info;
+    final message = isVerified
+        ? 'Your student status is verified. Companies trust your applications.'
+        : isPending
+            ? 'Verification is under review. Usually takes 1–2 business days.'
+            : 'Verify your student status to unlock applications and build credibility.';
+    final actionLabel = isVerified ? null : 'Verify Now';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor.withAlpha(80)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 8),
+              Text(
+                'Student Verification',
+                style: AppTextStyles.labelMedium.copyWith(color: iconColor),
+              ),
+              const Spacer(),
+              VerificationBadge(status: status),
+              if (status == VerificationStatus.unverified)
+                Text(
+                  'Not Verified',
+                  style:
+                      AppTextStyles.caption.copyWith(color: AppColors.info),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(message, style: AppTextStyles.bodyMedium),
+          if (actionLabel != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => context.push(AppRoutes.verification),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: iconColor,
+                  side: BorderSide(color: borderColor),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(actionLabel),
+              ),
+            ),
+          ],
         ],
       ),
     );

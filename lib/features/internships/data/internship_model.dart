@@ -68,6 +68,9 @@ class Internship {
   bool get isExpired =>
       deadline != null && deadline!.isBefore(DateTime.now());
 
+  bool get isNew =>
+      DateTime.now().difference(createdAt).inHours < 48;
+
   factory Internship.fromJson(Map<String, dynamic> json) {
     InternshipStats? stats;
     final appCount = _embeddedCount(json['applications']);

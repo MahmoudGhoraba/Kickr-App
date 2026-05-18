@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:kickr/core/router/app_router.dart';
 import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
+import 'package:kickr/features/internships/data/internship_model.dart';
 import 'package:kickr/features/internships/presentation/providers/internship_providers.dart';
+import 'package:kickr/features/internships/presentation/widgets/deadline_badge.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_card.dart';
 import 'package:kickr/features/internships/presentation/widgets/internship_filter_bar.dart';
 import 'package:kickr/features/profile/presentation/providers/profile_providers.dart';
@@ -46,11 +48,15 @@ class _InternshipFeedScreenState
 
   @override
   Widget build(BuildContext context) {
-    final internships = ref.watch(filteredInternshipsProvider);
+    final internships = ref.watch(personalizedFeedProvider);
     final filter = ref.watch(internshipFilterProvider);
-    final firstName = _firstName(
-      ref.watch(currentProfileProvider).valueOrNull?.fullName,
-    );
+    final profile = ref.watch(currentProfileProvider).valueOrNull;
+    final firstName = _firstName(profile?.fullName);
+
+    final closingSoon =
+        ref.watch(closingSoonProvider).valueOrNull ?? const [];
+    final isPersonalized =
+        profile != null && profile.hasPersonalizationData;
 
     return SafeArea(
       bottom: false,
@@ -59,6 +65,7 @@ class _InternshipFeedScreenState
         onRefresh: () => ref.read(internshipsProvider.notifier).fetch(),
         child: CustomScrollView(
           slivers: [
+            // ── Header: greeting + search + filter ──────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -70,8 +77,9 @@ class _InternshipFeedScreenState
                     AppSearchBar(
                       controller: _searchController,
                       hintText: 'Search internships...',
-                      onChanged: (q) =>
-                          ref.read(internshipFilterProvider.notifier).setQuery(q),
+                      onChanged: (q) => ref
+                          .read(internshipFilterProvider.notifier)
+                          .setQuery(q),
                     ),
                     const SizedBox(height: 12),
                     const InternshipFilterBar(),
@@ -79,11 +87,57 @@ class _InternshipFeedScreenState
                       const SizedBox(height: 8),
                       _SaveSearchBar(filter: filter),
                     ],
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                   ],
                 ),
               ),
             ),
+
+            // ── Closing soon carousel (shown only when there are matches) ──
+            if (closingSoon.isNotEmpty) ...[
+              const SliverToBoxAdapter(
+                child: _SectionHeader(
+                  'Closing Soon',
+                  icon: Icons.schedule_rounded,
+                  iconColor: AppColors.warning,
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 116,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    itemCount: closingSoon.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final item = closingSoon[index];
+                      return _ClosingSoonCard(
+                        internship: item,
+                        onTap: () => context.push(
+                          AppRoutes.internshipDetailPath(item.id),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            ],
+
+            // ── Main feed section header ─────────────────────────────────
+            SliverToBoxAdapter(
+              child: _SectionHeader(
+                isPersonalized ? 'For You' : 'All Internships',
+                icon: isPersonalized
+                    ? Icons.auto_awesome_rounded
+                    : Icons.work_outline_rounded,
+                iconColor:
+                    isPersonalized ? AppColors.primary : AppColors.textSecondary,
+              ),
+            ),
+
+            // ── Main feed list ───────────────────────────────────────────
             internships.when(
               loading: () =>
                   const SliverFillRemaining(child: _LoadingState()),
@@ -119,6 +173,90 @@ class _InternshipFeedScreenState
     );
   }
 }
+
+// ─── Section header ───────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(
+    this.title, {
+    required this.icon,
+    required this.iconColor,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: iconColor),
+          const SizedBox(width: 6),
+          Text(title, style: AppTextStyles.headlineMedium),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Closing soon compact card ────────────────────────────────────────────────
+
+class _ClosingSoonCard extends StatelessWidget {
+  const _ClosingSoonCard({
+    required this.internship,
+    required this.onTap,
+  });
+
+  final Internship internship;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 190,
+        padding: const EdgeInsets.all(14),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.cardShadow,
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DeadlineBadge(deadline: internship.deadline!),
+            const SizedBox(height: 8),
+            Text(
+              internship.title,
+              style: AppTextStyles.labelMedium,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Text(
+              internship.company?.name ?? '',
+              style: AppTextStyles.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Save search bar ─────────────────────────────────────────────────────────
 
 class _SaveSearchBar extends ConsumerWidget {
   const _SaveSearchBar({required this.filter});
@@ -202,6 +340,8 @@ class _SaveSearchBar extends ConsumerWidget {
   }
 }
 
+// ─── Greeting ─────────────────────────────────────────────────────────────────
+
 class _Greeting extends StatelessWidget {
   const _Greeting({required this.firstName});
 
@@ -222,6 +362,8 @@ class _Greeting extends StatelessWidget {
     );
   }
 }
+
+// ─── Loading / error / empty states ──────────────────────────────────────────
 
 class _LoadingState extends StatelessWidget {
   const _LoadingState();

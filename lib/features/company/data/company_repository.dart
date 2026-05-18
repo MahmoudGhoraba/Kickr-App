@@ -4,6 +4,7 @@ import 'package:kickr/features/applications/data/application_model.dart';
 import 'package:kickr/features/company/data/applicant_entry.dart';
 import 'package:kickr/features/internships/data/company_model.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
+import 'package:kickr/features/profile/data/profile_model.dart';
 
 class CompanyRepository {
   const CompanyRepository(this._supabase);
@@ -195,7 +196,10 @@ class CompanyRepository {
 
     final profileResponse = await _supabase
         .from(DatabaseConstants.profiles)
-        .select('id, full_name, university, major, avatar_url, academic_year, skills')
+        .select(
+          'id, full_name, university, major, avatar_url, '
+          'academic_year, skills, verification_status',
+        )
         .inFilter('id', userIds);
 
     final profileMap = <String, Map<String, dynamic>>{
@@ -215,6 +219,9 @@ class CompanyRepository {
                 ?.map((e) => e as String)
                 .toList() ??
             const [],
+        verificationStatus: VerificationStatus.fromString(
+          p?['verification_status'] as String?,
+        ),
       );
     }).toList();
   }

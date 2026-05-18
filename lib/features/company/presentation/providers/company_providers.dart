@@ -85,6 +85,35 @@ class CompanyInternshipsNotifier
           current.where((i) => i.id != internshipId).toList());
     }
   }
+
+  /// Marks an internship inactive in-memory after a successful archive call.
+  /// Keeps it visible in the dashboard's Inactive section instead of removing it.
+  void setInactive(String internshipId) {
+    final current = state.valueOrNull ?? [];
+    if (!mounted) return;
+    state = AsyncValue.data([
+      for (final i in current)
+        if (i.id == internshipId)
+          Internship(
+            id: i.id,
+            companyId: i.companyId,
+            title: i.title,
+            description: i.description,
+            shortDescription: i.shortDescription,
+            location: i.location,
+            type: i.type,
+            category: i.category,
+            requiredSkills: i.requiredSkills,
+            isActive: false,
+            createdAt: i.createdAt,
+            deadline: i.deadline,
+            company: i.company,
+            stats: i.stats,
+          )
+        else
+          i,
+    ]);
+  }
 }
 
 // ─── Applicant list (per internship) ─────────────────────────────────────────

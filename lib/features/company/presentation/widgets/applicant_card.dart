@@ -4,6 +4,7 @@ import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/applications/data/application_model.dart';
 import 'package:kickr/features/applications/presentation/widgets/application_status_badge.dart';
 import 'package:kickr/features/company/data/applicant_entry.dart';
+import 'package:kickr/features/verification/presentation/widgets/verification_badge.dart';
 
 class ApplicantCard extends StatelessWidget {
   const ApplicantCard({
@@ -11,11 +12,13 @@ class ApplicantCard extends StatelessWidget {
     required this.entry,
     required this.onStatusChanged,
     required this.onViewCv,
+    required this.onViewProfile,
   });
 
   final ApplicantEntry entry;
   final ValueChanged<ApplicationStatus> onStatusChanged;
   final VoidCallback onViewCv;
+  final VoidCallback onViewProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -45,11 +48,19 @@ class ApplicantCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      entry.displayName,
-                      style: AppTextStyles.labelMedium,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            entry.displayName,
+                            style: AppTextStyles.labelMedium,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        VerificationBadge(status: entry.verificationStatus),
+                      ],
                     ),
                     if (entry.subtitle != null) ...[
                       const SizedBox(height: 2),
@@ -90,11 +101,17 @@ class ApplicantCard extends StatelessWidget {
               const Spacer(),
               TextButton.icon(
                 onPressed: onViewCv,
-                icon: const Icon(
-                  Icons.picture_as_pdf_outlined,
-                  size: 16,
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                label: const Text('CV'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textSecondary,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                label: const Text('View CV'),
+              ),
+              TextButton.icon(
+                onPressed: onViewProfile,
+                icon: const Icon(Icons.person_outline_rounded, size: 16),
+                label: const Text('Profile'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 8),

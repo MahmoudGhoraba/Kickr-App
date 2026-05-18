@@ -103,7 +103,21 @@ class InternshipCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(internship.title, style: AppTextStyles.headlineMedium),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    internship.title,
+                    style: AppTextStyles.headlineMedium,
+                  ),
+                ),
+                if (internship.isNew && !internship.isExpired) ...[
+                  const SizedBox(width: 8),
+                  const _NewBadge(),
+                ],
+              ],
+            ),
             if (internship.shortDescription != null) ...[
               const SizedBox(height: 4),
               Text(
@@ -123,6 +137,25 @@ class InternshipCard extends ConsumerWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NewBadge extends StatelessWidget {
+  const _NewBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.success,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        'New',
+        style: AppTextStyles.badge.copyWith(color: AppColors.white),
       ),
     );
   }

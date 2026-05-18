@@ -65,6 +65,16 @@ class ApplicationsNotifier
     if (mounted) state = result;
   }
 
+  /// Silently re-fetches without showing a loading spinner, so the existing
+  /// list stays visible while the status update arrives (used by the
+  /// applications realtime subscription).
+  Future<void> backgroundRefresh() async {
+    if (_userId.isEmpty) return;
+    final result =
+        await AsyncValue.guard(() => _repo.fetchUserApplications(_userId));
+    if (mounted) state = result;
+  }
+
   /// Optimistically inserts a newly submitted application at the top of the
   /// list so the Applications tab updates instantly without a re-fetch.
   void addApplication(Application application) {

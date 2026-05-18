@@ -2,6 +2,14 @@ abstract final class StorageConstants {
   /// Supabase Storage bucket that holds all CV files.
   static const String cvBucket = 'cv-files';
 
+  /// Private Supabase Storage bucket for student verification documents.
+  static const String verificationBucket = 'student-verification';
+
+  /// Path for a student's uploaded ID document.
+  /// Fixed name per user so each upload replaces the previous.
+  static String studentIdPath(String userId, String ext) =>
+      '$userId/student_id.$ext';
+
   /// Canonical storage path for a user's CV upload.
   /// Format: {userId}/{timestamp}_cv.pdf
   /// Matches the RLS policy path prefix in the cv-files bucket.

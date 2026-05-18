@@ -18,6 +18,7 @@ import 'package:kickr/features/internships/presentation/screens/home_screen.dart
 import 'package:kickr/features/internships/presentation/screens/internship_detail_screen.dart';
 import 'package:kickr/features/profile/presentation/screens/complete_profile_screen.dart';
 import 'package:kickr/features/profile/presentation/screens/profile_edit_screen.dart';
+import 'package:kickr/features/verification/presentation/screens/verification_screen.dart';
 
 // Route path constants — always use these instead of raw strings
 class AppRoutes {
@@ -33,6 +34,9 @@ class AppRoutes {
   // Profile
   static const profileEdit = '/profile/edit';
   static const profileComplete = '/profile/complete';
+
+  // Verification
+  static const verification = '/verification';
 
   // Company portal
   static const companySetup = '/company/setup';
@@ -152,6 +156,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return InternshipDetailScreen(internshipId: id);
         },
+      ),
+
+      // ── Verification ───────────────────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.verification,
+        builder: (context, _) => const VerificationScreen(),
       ),
 
       // ── Profile ────────────────────────────────────────────────────────────

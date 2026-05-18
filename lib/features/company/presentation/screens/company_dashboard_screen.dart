@@ -203,7 +203,7 @@ class CompanyDashboardScreen extends ConsumerWidget {
       if (context.mounted) {
         ref
             .read(companyInternshipsProvider.notifier)
-            .removeInternship(internship.id);
+            .setInactive(internship.id);
       }
     } catch (_) {
       if (context.mounted) {

@@ -5,8 +5,12 @@ import 'package:kickr/core/theme/app_colors.dart';
 import 'package:kickr/core/theme/app_text_styles.dart';
 import 'package:kickr/features/applications/presentation/providers/application_providers.dart';
 import 'package:kickr/features/applications/presentation/widgets/apply_bottom_sheet.dart';
+import 'package:kickr/core/constants/role_constants.dart';
+import 'package:kickr/core/router/app_router.dart';
 import 'package:kickr/features/auth/presentation/providers/auth_providers.dart';
 import 'package:kickr/features/internships/data/company_model.dart';
+import 'package:kickr/features/profile/data/profile_model.dart';
+import 'package:kickr/features/profile/presentation/providers/profile_providers.dart';
 import 'package:kickr/features/internships/data/internship_model.dart';
 import 'package:kickr/features/internships/presentation/providers/internship_providers.dart';
 import 'package:kickr/features/internships/presentation/widgets/company_avatar.dart';
@@ -144,98 +148,79 @@ class _ApplyBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(currentProfileProvider);
     final appsAsync = ref.watch(applicationsProvider);
     final hasApplied = ref.watch(hasAppliedProvider(internshipId));
+
+    // Company users do not apply — hide the bar entirely.
+    final profile = profileAsync.valueOrNull;
+    if (profile != null && profile.effectiveRole == UserRole.company) {
+      return const SizedBox.shrink();
+    }
 
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-        child: appsAsync.isLoading
-            ? _applyButton(context, isLoading: true, hasApplied: false)
-            : _applyButton(context, isLoading: false, hasApplied: hasApplied),
+        child: _buildContent(
+          context,
+          profile: profile,
+          isAppsLoading: appsAsync.isLoading,
+          hasApplied: hasApplied,
+        ),
       ),
     );
   }
 
-  Widget _applyButton(
+  Widget _buildContent(
     BuildContext context, {
-    required bool isLoading,
+    required Profile? profile,
+    required bool isAppsLoading,
     required bool hasApplied,
   }) {
+    // Expired internship — show closed state (overrides everything except applied).
     if (internship.isExpired && !hasApplied) {
-      return SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppColors.errorBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.error.withAlpha(80)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.event_busy_rounded,
-                  color: AppColors.error, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Application Closed',
-                style: AppTextStyles.labelLarge
-                    .copyWith(color: AppColors.error),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _ClosedChip();
     }
 
+    // Student has already applied — no re-apply.
     if (hasApplied) {
+      return _AppliedChip();
+    }
+
+    // Profile still loading — treat conservatively as unverified.
+    if (profile == null) {
+      return _VerifyBanner(context: context);
+    }
+
+    // Verified student → normal apply flow.
+    if (profile.isVerified) {
       return SizedBox(
         width: double.infinity,
         height: 52,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppColors.successBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.success.withAlpha(80)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.check_circle_rounded,
-                  color: AppColors.success, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Applied',
-                style: AppTextStyles.labelLarge
-                    .copyWith(color: AppColors.success),
-              ),
-            ],
-          ),
+        child: ElevatedButton(
+          onPressed: isAppsLoading ? null : () => _showApplySheet(context),
+          child: isAppsLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.white,
+                  ),
+                )
+              : Text('Apply Now', style: AppTextStyles.labelLarge),
         ),
       );
     }
 
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: isLoading
-            ? null
-            : () => _showApplySheet(context),
-        child: isLoading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.white,
-                ),
-              )
-            : Text('Apply Now', style: AppTextStyles.labelLarge),
-      ),
-    );
+    // Pending verification — encourage patience.
+    if (profile.verificationStatus == VerificationStatus.pending) {
+      return _PendingVerificationChip(context: context);
+    }
+
+    // Unverified student — prompt to verify.
+    return _VerifyBanner(context: context);
   }
 
   void _showApplySheet(BuildContext context) {
@@ -248,6 +233,168 @@ class _ApplyBar extends ConsumerWidget {
         internshipTitle: internship.title,
         companyName: internship.company?.name,
       ),
+    );
+  }
+}
+
+class _ClosedChip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.errorBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.error.withAlpha(80)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.event_busy_rounded,
+                color: AppColors.error, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Application Closed',
+              style: AppTextStyles.labelLarge.copyWith(color: AppColors.error),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppliedChip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.successBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.success.withAlpha(80)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle_rounded,
+                color: AppColors.success, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Applied',
+              style:
+                  AppTextStyles.labelLarge.copyWith(color: AppColors.success),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VerifyBanner extends StatelessWidget {
+  const _VerifyBanner({required this.context});
+
+  final BuildContext context;
+
+  @override
+  Widget build(BuildContext outerContext) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.infoBg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.info.withAlpha(60)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.shield_outlined,
+                  color: AppColors.info, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Verify your student status to start applying for internships.',
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.info),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: () => outerContext.push(AppRoutes.verification),
+            icon: const Icon(Icons.verified_user_outlined, size: 18),
+            label: Text('Verify Now', style: AppTextStyles.labelLarge),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PendingVerificationChip extends StatelessWidget {
+  const _PendingVerificationChip({required this.context});
+
+  final BuildContext context;
+
+  @override
+  Widget build(BuildContext outerContext) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.warningBg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.warning.withAlpha(60)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.schedule_rounded,
+                  color: AppColors.warning, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Verification pending review — usually 1–2 business days.',
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.warning),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: () => outerContext.push(AppRoutes.verification),
+            icon: const Icon(Icons.info_outline_rounded, size: 18),
+            label: const Text('Check Status'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.warning,
+              side: const BorderSide(color: AppColors.warning),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -5,6 +5,8 @@ import 'package:kickr/features/internships/data/internship_model.dart';
 import 'package:kickr/features/internships/data/internship_repository.dart';
 import 'package:kickr/features/internships/data/saved_search_model.dart';
 import 'package:kickr/features/internships/data/saved_search_repository.dart';
+import 'package:kickr/features/profile/presentation/providers/profile_providers.dart';
+import 'package:kickr/shared/services/personalization/internship_scoring_service.dart';
 
 // ─── Repository ─────────────────────────────────────────────────────────────
 
@@ -30,6 +32,13 @@ class InternshipsNotifier
 
   Future<void> fetch() async {
     state = const AsyncValue.loading();
+    final result = await AsyncValue.guard(_repo.fetchInternships);
+    if (mounted) state = result;
+  }
+
+  /// Silently re-fetches without setting loading state, so the existing list
+  /// remains visible while the update arrives (used by realtime subscriptions).
+  Future<void> backgroundRefresh() async {
     final result = await AsyncValue.guard(_repo.fetchInternships);
     if (mounted) state = result;
   }
@@ -179,6 +188,54 @@ final savedInternshipListProvider =
   return AsyncValue.data(
     all.requireValue.where((i) => idSet.contains(i.id)).toList(),
   );
+});
+
+// ─── Personalized feed ───────────────────────────────────────────────────────
+
+/// Filtered internship list sorted by profile-match score (descending).
+///
+/// Falls back to the unscored [filteredInternshipsProvider] list when the
+/// student's profile has no skills or major set — so the feed is never empty
+/// due to missing personalization data.
+final personalizedFeedProvider = Provider<AsyncValue<List<Internship>>>((ref) {
+  final filtered = ref.watch(filteredInternshipsProvider);
+  final profile = ref.watch(currentProfileProvider).valueOrNull;
+
+  return filtered.whenData((list) {
+    if (profile == null || !profile.hasPersonalizationData) return list;
+
+    final scored = list
+        .map((i) => (internship: i, score: scoreInternship(i, profile)))
+        .toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+
+    return scored.map((e) => e.internship).toList();
+  });
+});
+
+/// Active internships whose deadline falls within the next 5 days.
+/// Sorted by soonest deadline first.
+final closingSoonProvider = Provider<AsyncValue<List<Internship>>>((ref) {
+  final all = ref.watch(internshipsProvider);
+  return all.whenData((list) {
+    final now = DateTime.now();
+    return list
+        .where((i) {
+          if (i.deadline == null || i.isExpired) return false;
+          return i.deadline!.difference(now).inDays <= 5;
+        })
+        .toList()
+      ..sort((a, b) => a.deadline!.compareTo(b.deadline!));
+  });
+});
+
+/// Internships posted within the last 3 days (for "Recently Posted" badges).
+final recentlyPostedProvider = Provider<AsyncValue<List<Internship>>>((ref) {
+  final all = ref.watch(internshipsProvider);
+  return all.whenData((list) {
+    final cutoff = DateTime.now().subtract(const Duration(days: 3));
+    return list.where((i) => i.createdAt.isAfter(cutoff)).toList();
+  });
 });
 
 // ─── Detail ───────────────────────────────────────────────────────────────────
